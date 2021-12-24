@@ -498,6 +498,8 @@ If media items have been attached and uploaded with
              (mastodon-http--triage response
                                     (lambda ()
                                       (mastodon-toot--kill)
+                                      ;;FIXME sometimes this fetches wrong
+                                      ;; buffer spec in thread view
                                       (sleep-for 1)
                                       (mastodon-tl--reload-timeline-or-profile)
                                       (message "Toot toot!"))))))))

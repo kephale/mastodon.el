@@ -962,7 +962,8 @@ webapp"
          (url (mastodon-http--api (format "statuses/%s/context" id)))
          (buffer (format "*mastodon-thread-%s*" id))
          (toot (mastodon-tl--property 'toot-json))
-         (context (mastodon-http--get-json url)))
+         (context (mastodon-http--get-json url))
+         (update-function 'mastodon-tl--thread))
     (when (member (alist-get 'type toot) '("reblog" "favourite"))
       (setq toot (alist-get 'status toot)))
     (if (> (+ (length (alist-get 'ancestors context))
@@ -975,7 +976,8 @@ webapp"
                 `(buffer-name ,buffer
                               endpoint ,(format "statuses/%s/context" id)
                               update-function
-                              (lambda(toot) (message "END of thread."))))
+                              ,update-function))
+                              ;; (lambda(toot) (message "END of thread."))))
           (let ((inhibit-read-only t))
             (mastodon-tl--timeline (vconcat
                                     (alist-get 'ancestors context)
@@ -1310,10 +1312,14 @@ from the start if it is nil."
          (update-function (mastodon-tl--get-update-function))
          (id (mastodon-tl--newest-id))
          (json (mastodon-tl--updated-json endpoint id)))
-    (when json
-      (let ((inhibit-read-only t))
-        (goto-char (or mastodon-tl--update-point (point-min)))
-        (funcall update-function json)))))
+    (if (equal update-function 'mastodon-tl--thread)
+        (progn
+          (goto-char (or mastodon-tl--update-point (point-min)))
+          (funcall update-function)) ; no args for thread update
+      (when json
+        (let ((inhibit-read-only t))
+          (goto-char (or mastodon-tl--update-point (point-min)))
+          (funcall update-function json))))))
 
 (defun mastodon-tl--init (buffer-name endpoint update-function)
   "Initialize BUFFER-NAME with timeline targeted by ENDPOINT asynchronously.
