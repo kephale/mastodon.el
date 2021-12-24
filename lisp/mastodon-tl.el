@@ -1147,8 +1147,12 @@ For use after e.g. deleting a toot."
 (defun mastodon-tl--more ()
   "Append older toots to timeline, asynchronously."
   (interactive)
-  (mastodon-tl--more-json-async (mastodon-tl--get-endpoint) (mastodon-tl--oldest-id)
-                                'mastodon-tl--more* (current-buffer) (point)))
+  (if (equal (mastodon-tl--get-update-function) 'mastodon-tl--thread)
+      (progn
+        (goto-char (point-min))
+        (mastodon-tl--thread))
+    (mastodon-tl--more-json-async (mastodon-tl--get-endpoint) (mastodon-tl--oldest-id)
+                                  'mastodon-tl--more* (current-buffer) (point))))
 
 (defun mastodon-tl--more* (json buffer point-before)
   "Append older toots to timeline, asynchronously.
