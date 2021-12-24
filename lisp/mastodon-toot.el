@@ -498,6 +498,8 @@ If media items have been attached and uploaded with
              (mastodon-http--triage response
                                     (lambda ()
                                       (mastodon-toot--kill)
+                                      (sleep-for 1)
+                                      (mastodon-tl--reload-timeline-or-profile)
                                       (message "Toot toot!"))))))))
 
 (defun mastodon-toot--process-local (acct)

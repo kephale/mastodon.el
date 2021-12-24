@@ -1134,7 +1134,13 @@ For use after e.g. deleting a toot."
          (mastodon-notifications--get))
         ((equal (mastodon-tl--buffer-name)
                 (concat "*mastodon-" (mastodon-auth--get-account-name) "-statuses*"))
-         (mastodon-profile--my-profile))))
+         (mastodon-profile--my-profile))
+        ((string-suffix-p "context" (mastodon-tl--get-endpoint))
+         (save-excursion
+           ;; get parent thread for reload, because if we delete toot then run
+           ;; tl--thread we get no thread
+           (goto-char (point-min))
+           (mastodon-tl--thread)))))
 
 (defun mastodon-tl--more ()
   "Append older toots to timeline, asynchronously."
