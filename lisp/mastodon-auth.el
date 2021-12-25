@@ -165,7 +165,9 @@ Handle any errors from the server."
      "accounts/verify_credentials"))))
 
 (defun mastodon-auth--user-acct ()
-  "Return a mastodon user acct name."
+  "Return the acct name of the currently logged in user.
+Either fetch from `mastodon-auth--acct-alist', or else run
+`mastodon-auth--get-account-name'."
   (or (cdr (assoc mastodon-instance-url mastodon-auth--acct-alist))
       (let ((acct (mastodon-auth--get-account-name)))
         (push (cons mastodon-instance-url acct) mastodon-auth--acct-alist)

@@ -35,7 +35,7 @@
 (require 'time-date)
 (require 'cl-lib) ; for cl-mapcar
 
-(autoload 'mastodon-auth--get-account-name "mastodon-auth")
+(autoload 'mastodon-auth--user-acct "mastodon-auth")
 (autoload 'mastodon-http--api "mastodon-http")
 (autoload 'mastodon-http--get-json "mastodon-http")
 (autoload 'mastodon-media--get-avatar-rendering "mastodon-media")
@@ -1139,14 +1139,15 @@ For use after e.g. deleting a toot."
         ((equal (mastodon-tl--get-endpoint) "notifications")
          (mastodon-notifications--get))
         ((equal (mastodon-tl--buffer-name)
-                (concat "*mastodon-" (mastodon-auth--get-account-name) "-statuses*"))
+                (concat "*mastodon-" (mastodon-auth--user-acct) "-statuses*"))
          (mastodon-profile--my-profile))
         ((string-suffix-p "context" (mastodon-tl--get-endpoint))
          (save-excursion
            ;; get parent thread for reload, because if we delete toot then run
            ;; tl--thread we get no thread
            (goto-char (point-min))
-           (mastodon-tl--thread)))))
+           (mastodon-tl--thread))))
+  (goto-char point-before))
 
 (defun mastodon-tl--more ()
   "Append older toots to timeline, asynchronously."

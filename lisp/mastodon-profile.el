@@ -39,7 +39,7 @@
 (autoload 'mastodon-http--get-json "mastodon-http.el")
 (autoload 'mastodon-http--post "mastodon-http.el")
 (autoload 'mastodon-http--triage "mastodon-http.el")
-(autoload 'mastodon-auth--get-account-name "mastodon-auth.el")
+(autoload 'mastodon-auth--user-acct "mastodon-auth.el")
 (autoload 'mastodon-http--get-json-async "mastodon-http.el")
 (autoload 'mastodon-media--get-media-link-rendering "mastodon-media.el")
 (autoload 'mastodon-media--inline-images "mastodon-media.el")
@@ -375,7 +375,7 @@ If toot is a boost, opens the profile of the booster."
   "Show the profile of the currently signed in user."
   (interactive)
   (message "Loading your profile...")
-  (mastodon-profile--show-user (mastodon-auth--get-account-name)))
+  (mastodon-profile--show-user (mastodon-auth--user-acct)))
 
 (defun mastodon-profile--account-field (account field)
   "Return FIELD from the ACCOUNT.
