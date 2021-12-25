@@ -46,6 +46,7 @@
   (defvar company-backends))
 
 (defvar mastodon-instance-url)
+(defvar-local mastodon-toot-context nil)
 (defvar mastodon-tl--buffer-spec)
 (autoload 'mastodon-auth--user-acct "mastodon-auth")
 (autoload 'mastodon-http--api "mastodon-http")
@@ -501,11 +502,10 @@ If media items have been attached and uploaded with
            (let ((response (mastodon-http--post endpoint args nil)))
              (mastodon-http--triage response
                                     (lambda ()
-                                      ;;FIXME sometimes this fetches wrong
-                                      ;; buffer spec in thread view still
-                                      (let ((mastodon-tl--buffer-spec mastodon-toot-context))
+                                      (let ((mastodon-tl--buffer-spec mastodon-toot-context)
+                                            (point-before mastodon-toot-point-before))
                                         (mastodon-toot--kill)
-                                        (mastodon-tl--reload-timeline-or-profile (point)))
+                                        (mastodon-tl--reload-timeline-or-profile point-before))
                                       (message "Toot toot!"))))))))
 
 (defun mastodon-toot--process-local (acct)
@@ -880,6 +880,7 @@ REPLY-JSON is the full JSON of the toot being replied to."
   (let* ((buffer-exists (get-buffer "*new toot*"))
          (buffer (or buffer-exists (get-buffer-create "*new toot*")))
          (inhibit-read-only t)
+         (point-before (point)) ;store point to return to after post
          (context mastodon-tl--buffer-spec)) ;get buffer-spec before compose buff
     (switch-to-buffer-other-window buffer)
     (text-mode)
@@ -894,8 +895,9 @@ REPLY-JSON is the full JSON of the toot being replied to."
         (set (make-local-variable 'company-backends)
              (add-to-list 'company-backends 'mastodon-toot-mentions))
         (company-mode-on)))
-    (set (make-local-variable 'mastodon-toot-context)
-         context) ;; store buffer-spec of buffer we were called from
+    (set (make-local-variable 'mastodon-toot-point-before)
+         point-before)
+    (setq mastodon-toot-context context) ;; store buffer-spec of buffer we were called from
     (make-local-variable 'after-change-functions)
     (push #'mastodon-toot--update-status-fields after-change-functions)
     (mastodon-toot--refresh-attachments-display)
