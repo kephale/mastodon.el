@@ -363,8 +363,11 @@ If toot is a boost, opens the profile of the booster."
                        user-handles
                        nil ; predicate
                        'confirm))))
-  (let ((account (mastodon-profile--lookup-account-in-status
-                  user-handle (mastodon-profile--toot-json))))
+  (let ((account (or
+                  ;; when no toot at point:
+                  (mastodon-profile--search-account-by-handle user-handle)
+                  (mastodon-profile--lookup-account-in-status
+                      user-handle (mastodon-profile--toot-json)))))
     (if account
         (progn
           (message "Loading profile of user %s..." user-handle)
