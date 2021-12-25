@@ -282,7 +282,7 @@ Makes a POST request to the server."
           (mastodon-toot--action action
                                  (lambda ()
                                    (when mastodon-tl--buffer-spec
-                                     (mastodon-tl--reload-timeline-or-profile))
+                                     (mastodon-tl--reload-timeline-or-profile (point)))
                                    (message "Toot %s!" msg)))))))
 
 (defun mastodon-toot--delete-toot ()
@@ -313,7 +313,7 @@ NO-REDRAFT means delete toot only."
                (if no-redraft
                    (progn
                      (when mastodon-tl--buffer-spec
-                            (mastodon-tl--reload-timeline-or-profile))
+                            (mastodon-tl--reload-timeline-or-profile (point)))
                      (message "Toot deleted!"))
                  (mastodon-toot--redraft response
                                          reply-id
@@ -505,7 +505,7 @@ If media items have been attached and uploaded with
                                       ;; buffer spec in thread view still
                                       (let ((mastodon-tl--buffer-spec mastodon-toot-context))
                                         (mastodon-toot--kill)
-                                        (mastodon-tl--reload-timeline-or-profile))
+                                        (mastodon-tl--reload-timeline-or-profile (point)))
                                       (message "Toot toot!"))))))))
 
 (defun mastodon-toot--process-local (acct)

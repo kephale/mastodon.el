@@ -1127,7 +1127,7 @@ by `mastodon-tl--follow-user' to enable or disable notifications."
                                     (message "User %s (@%s) %sed!" name user-handle action)))))))
 
 ;; TODO: add this to new posts in some cases, e.g. in thread view.
-(defun mastodon-tl--reload-timeline-or-profile ()
+(defun mastodon-tl--reload-timeline-or-profile (point-before)
   "Reload the current timeline or profile page.
 For use after e.g. deleting a toot."
   (cond ((equal (mastodon-tl--get-endpoint) "timelines/home")
