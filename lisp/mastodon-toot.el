@@ -497,11 +497,11 @@ If media items have been attached and uploaded with
            (let ((response (mastodon-http--post endpoint args nil)))
              (mastodon-http--triage response
                                     (lambda ()
-                                      (mastodon-toot--kill)
                                       ;;FIXME sometimes this fetches wrong
-                                      ;; buffer spec in thread view
-                                      (sleep-for 1)
-                                      (mastodon-tl--reload-timeline-or-profile)
+                                      ;; buffer spec in thread view still
+                                      (let ((mastodon-tl--buffer-spec mastodon-toot-context))
+                                        (mastodon-toot--kill)
+                                        (mastodon-tl--reload-timeline-or-profile))
                                       (message "Toot toot!"))))))))
 
 (defun mastodon-toot--process-local (acct)
@@ -875,7 +875,8 @@ If REPLY-TO-ID is provided, set the `mastodon-toot--reply-to-id' var.
 REPLY-JSON is the full JSON of the toot being replied to."
   (let* ((buffer-exists (get-buffer "*new toot*"))
          (buffer (or buffer-exists (get-buffer-create "*new toot*")))
-         (inhibit-read-only t))
+         (inhibit-read-only t)
+         (context mastodon-tl--buffer-spec)) ;get buffer-spec before compose buff
     (switch-to-buffer-other-window buffer)
     (text-mode)
     (mastodon-toot-mode t)
@@ -889,6 +890,8 @@ REPLY-JSON is the full JSON of the toot being replied to."
         (set (make-local-variable 'company-backends)
              (add-to-list 'company-backends 'mastodon-toot-mentions))
         (company-mode-on)))
+    (set (make-local-variable 'mastodon-toot-context)
+         context) ;; store buffer-spec of buffer we were called from
     (make-local-variable 'after-change-functions)
     (push #'mastodon-toot--update-status-fields after-change-functions)
     (mastodon-toot--refresh-attachments-display)
