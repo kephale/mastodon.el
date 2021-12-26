@@ -1142,11 +1142,10 @@ For use after e.g. deleting a toot."
                 (concat "*mastodon-" (mastodon-auth--user-acct) "-statuses*"))
          (mastodon-profile--my-profile))
         ((string-suffix-p "context" (mastodon-tl--get-endpoint))
-         (save-excursion
            ;; get parent thread for reload, because if we delete toot then run
            ;; tl--thread we get no thread
            (goto-char (point-min))
-           (mastodon-tl--thread))))
+           (mastodon-tl--thread)))
   (goto-char point-before))
 
 (defun mastodon-tl--more ()
