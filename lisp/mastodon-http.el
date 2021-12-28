@@ -110,9 +110,10 @@ Authorization header is included by default unless UNAUTHENTICED-P is non-nil."
                       args
                       "&")))
         (url-request-extra-headers
-	 (append
-	  (unless unauthenticed-p
-	    `(("Authorization" . ,(concat "Bearer " (mastodon-auth--access-token)))))
+	     (append
+	      (unless unauthenticed-p
+	        `(("Authorization" . ,(concat "Bearer "
+                                          (mastodon-auth--access-token)))))
           ;; pleroma compatibility:
           (unless (assoc "Content-Type" headers)
             '(("Content-Type" . "application/x-www-form-urlencoded")))
@@ -157,23 +158,12 @@ Pass response buffer to CALLBACK function."
       (mastodon-http--url-retrieve-synchronously url))))
 
 ;; search functions:
-(defun mastodon-http--process-json-search ()
-  "Process JSON returned by a search query to the server."
-  (goto-char (point-min))
-  (re-search-forward "^$" nil 'move)
-  (let ((json-string
-         (decode-coding-string
-          (buffer-substring-no-properties (point) (point-max))
-          'utf-8)))
-    (kill-buffer)
-    (json-read-from-string json-string)))
-
 (defun mastodon-http--get-search-json (url query &optional param)
-  "Make GET request to URL, searching for QUERY and return JSON response.
-PARAM is any extra parameters to send with the request."
-  (let ((buffer (mastodon-http--get-search url query param)))
-    (with-current-buffer buffer
-      (mastodon-http--process-json-search))))
+   "Make GET request to URL, searching for QUERY and return JSON response.
+ PARAM is any extra parameters to send with the request."
+   (let ((buffer (mastodon-http--get-search url query param)))
+     (with-current-buffer buffer
+       (mastodon-http--process-json))))
 
 (defun mastodon-http--get-search (base-url query &optional param)
   "Make GET request to BASE-URL, searching for QUERY.
@@ -227,6 +217,42 @@ Pass response buffer to CALLBACK function with args CBARGS."
    (lambda (status)
      (when status ;; only when we actually get sth?
        (apply callback (mastodon-http--process-json) args)))))
+
+(defun mastodon-http--get-params-async (url callback &optional cbargs silent params)
+  "Make GET request to URL, with optional PARAMS.
+Pass response buffer to CALLBACK function.
+PARAMS is a list of pairs to format, e.g. ((\"q\" . \"query\"))."
+  (let* ((url-request-method "GET")
+         (url-param-string
+          (when params
+            (mapconcat (lambda (param)
+                         (concat (url-hexify-string (car param))
+                                 "="
+                                 (url-hexify-string (cdr param))))
+                       params
+                       "&")))
+         ;; GET requests must have params directly in URL:
+         (url (if params
+                  (concat url "?" url-param-string)
+                url))
+         (url-request-extra-headers
+          (append
+           `(("Authorization" . ,(concat "Bearer "
+                                         (mastodon-auth--access-token)))))))
+    (url-retrieve url callback cbargs silent)))
+
+(defun mastodon-http--get-params-async-json (url callback &optional cbargs silent params)
+  "Make GET request to URL, with parameters process JSON response.
+CALLBACK, CBARGS, and SILENT are sent to `mastodon-http--get-params-async'.
+PARAMS is a list of any parameter pairs to send with the request."
+  (mastodon-http--get-params-async
+   url
+   (lambda (status)
+     (when status ;; only when we actually get sth?
+       (apply callback (mastodon-http--process-json) cbargs)))
+   cbargs
+   silent
+   params))
 
 (defun mastodon-http--post-async (url args headers &optional callback &rest cbargs)
   "POST asynchronously to URL with ARGS and HEADERS.
