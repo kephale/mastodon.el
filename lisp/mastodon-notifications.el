@@ -67,6 +67,9 @@
     ("Posted" . "a post"))
   "Alist of subjects for notification types.")
 
+(defvar mastodon-notifications-newest-id nil
+  "The ID of the newest notification already loaded and seen locally.")
+
 (defun mastodon-notifications--byline-concat (message)
   "Add byline for TOOT with MESSAGE."
   (concat
@@ -253,7 +256,10 @@ ID is the notification's own id, which is attached as a property."
 (defun mastodon-notifications--timeline (json)
   "Format JSON in Emacs buffer."
   (mapc #'mastodon-notifications--by-type json)
-  (goto-char (point-min)))
+  (goto-char (point-min))
+  ;;set newest ID for notifications modeline alerts:
+  (setq mastodon-notifications-newest-id
+        (mastodon-tl--property 'toot-id)))
 
 (defun mastodon-notifications--get ()
   "Display NOTIFICATIONS in buffer."
@@ -264,5 +270,36 @@ ID is the notification's own id, which is attached as a property."
    "notifications"
    'mastodon-notifications--timeline))
 
+(defun mastodon-notifications--check-for-new-timer ()
+  (mastodon-notifications--check-for-new mastodon-notifications-newest-id))
+
+(defun mastodon-notifications--check-for-new (newest-id)
+  "Check the server for new notifications since NEWEST-ID.
+Runs `mastodon-notifications--modeline-display-unread-count' on the response."
+  (let ((prev-buffer (current-buffer)))
+    (mastodon-http--get-params-async-json
+       (mastodon-http--api "notifications")
+     (lambda (status)
+       (when (> (length status) 0)
+         (mastodon-notifications--modeline-display-unread-count status prev-buffer)))
+     nil
+     t ;silent
+     `(("since_id" . ,newest-id)))))
+
+(defun mastodon-notifications--modeline-display-unread-count (response buffer)
+  "If we have new notifications in RESPONSE, update modeline in BUFFER.
+Callback for `mastodon-notifications--check-for-new'."
+  (let* ((count (length response))
+         (count-display (propertize
+                         (number-to-string count)
+                         'face 'mastodon-boosted-face))
+         (notifs-display (propertize
+                          "notifs:"
+                          'face 'mastodon-display-name-face)))
+    (with-current-buffer buffer
+      (when (> count 0)
+        (setq-local mode-line-misc-info `((,notifs-display ,count-display)))))))
+
+(run-at-time "30" mastodon-notifications--check-for-new)
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here
