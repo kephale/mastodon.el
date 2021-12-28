@@ -87,6 +87,8 @@
 ;; (autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
+(autoload 'mastodon-notifications--check-for-new "mastodon-notifications")
+
 
 (defgroup mastodon nil
   "Interface with Mastodon."

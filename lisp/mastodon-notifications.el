@@ -271,6 +271,8 @@ ID is the notification's own id, which is attached as a property."
    'mastodon-notifications--timeline))
 
 (defun mastodon-notifications--check-for-new-timer ()
+  "Function to run `mastodon-notifications--check-for-new' via a timer.
+Easy coz no args hassle."
   (mastodon-notifications--check-for-new mastodon-notifications-newest-id))
 
 (defun mastodon-notifications--check-for-new (newest-id)
@@ -280,8 +282,7 @@ Runs `mastodon-notifications--modeline-display-unread-count' on the response."
     (mastodon-http--get-params-async-json
        (mastodon-http--api "notifications")
      (lambda (status)
-       (when (> (length status) 0)
-         (mastodon-notifications--modeline-display-unread-count status prev-buffer)))
+       (mastodon-notifications--modeline-display-unread-count status prev-buffer))
      nil
      t ;silent
      `(("since_id" . ,newest-id)))))
@@ -294,12 +295,15 @@ Callback for `mastodon-notifications--check-for-new'."
                          (number-to-string count)
                          'face 'mastodon-boosted-face))
          (notifs-display (propertize
-                          "notifs:"
+                          (if (require 'all-the-icons nil :no-error)
+                              ""
+                            "notifs:")
                           'face 'mastodon-display-name-face)))
     (with-current-buffer buffer
-      (when (> count 0)
-        (setq-local mode-line-misc-info `((,notifs-display ,count-display)))))))
+      ;; this check prevents reset to 0
+      ;; better solution to displaying 0 is to remove it entirely
+      ;; (if (> count 0)
+      (setq-local mode-line-misc-info `((,notifs-display ,count-display))))))
 
-(run-at-time "30" mastodon-notifications--check-for-new)
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here
