@@ -70,6 +70,9 @@
 (defvar mastodon-notifications-newest-id nil
   "The ID of the newest notification already loaded and seen locally.")
 
+(defvar mastodon-notifications-new-notifications-timer nil
+  "The timer object used to check for new notifications.")
+
 (defun mastodon-notifications--byline-concat (message)
   "Add byline for TOOT with MESSAGE."
   (concat
@@ -271,21 +274,32 @@ ID is the notification's own id, which is attached as a property."
    'mastodon-notifications--timeline))
 
 (defun mastodon-notifications--check-for-new-timer ()
-  "Function to run `mastodon-notifications--check-for-new' via a timer.
+  "Run `mastodon-notifications--check-for-new' via a timer.
 Easy coz no args hassle."
   (mastodon-notifications--check-for-new mastodon-notifications-newest-id))
+
+(defun mastodon-notifications--set-and-run-timer ()
+  "Run a timer to check for new notifications.
+First we cancel any existing timers to avoid them accumulating.
+Run in `mastodon-mode-hook'."
+  (when mastodon-notifications-new-notifications-timer
+    (cancel-timer mastodon-notifications-new-notifications-timer))
+  (setq mastodon-notifications-new-notifications-timer
+        (run-at-time 0.5 5 #'mastodon-notifications--check-for-new-timer)))
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.
 Runs `mastodon-notifications--modeline-display-unread-count' on the response."
-  (let ((prev-buffer (current-buffer)))
-    (mastodon-http--get-params-async-json
+  ;;only run in masto mode:
+  (when (equal major-mode 'mastodon-mode)
+    (let ((prev-buffer (current-buffer)))
+      (mastodon-http--get-params-async-json
        (mastodon-http--api "notifications")
-     (lambda (status)
-       (mastodon-notifications--modeline-display-unread-count status prev-buffer))
-     nil
-     t ;silent
-     `(("since_id" . ,newest-id)))))
+       (lambda (status)
+         (mastodon-notifications--modeline-display-unread-count status prev-buffer))
+       nil
+       t ;silent
+       `(("since_id" . ,newest-id))))))
 
 (defun mastodon-notifications--modeline-display-unread-count (response buffer)
   "If we have new notifications in RESPONSE, update modeline in BUFFER.
@@ -298,12 +312,21 @@ Callback for `mastodon-notifications--check-for-new'."
                           (if (require 'all-the-icons nil :no-error)
                               ""
                             "notifs:")
-                          'face 'mastodon-display-name-face)))
-    (with-current-buffer buffer
-      ;; this check prevents reset to 0
-      ;; better solution to displaying 0 is to remove it entirely
-      ;; (if (> count 0)
-      (setq-local mode-line-misc-info `((,notifs-display ,count-display))))))
+                          'face 'mastodon-display-name-face))
+         (display (propertize (concat notifs-display count-display)
+                              'mouse-face 'mode-line-highlight
+                              'help-echo "mastodon notifications count")))
+    (when (and
+           ;; mastodon buffer:
+           (string-prefix-p "*mastodon"
+                            (buffer-name buffer))
+           ;; buffer not yet killed:
+           (buffer-live-p buffer))
+      (with-current-buffer buffer
+        ;; this check prevents reset to 0
+        ;; better solution to displaying 0 is to remove it entirely
+        ;; (if (> count 0)
+        (setq-local mode-line-misc-info display)))))
 
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here

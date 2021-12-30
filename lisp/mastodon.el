@@ -87,8 +87,7 @@
 ;; (autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
-(autoload 'mastodon-notifications--check-for-new "mastodon-notifications")
-
+(autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
 
 (defgroup mastodon nil
   "Interface with Mastodon."
@@ -229,7 +228,8 @@ If REPLY-JSON is the json of the toot being replied to."
                                 (when (require 'emojify nil :noerror)
                                   (emojify-mode t)
                                   (when mastodon-toot--enable-custom-instance-emoji
-                                    (mastodon-toot--enable-custom-emoji)))))
+                                    (mastodon-toot--enable-custom-emoji)))
+                                (mastodon-notifications--set-and-run-timer)))
 
 (define-derived-mode mastodon-mode special-mode "Mastodon"
   "Major mode for Mastodon, the federated microblogging network."
