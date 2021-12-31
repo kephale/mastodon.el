@@ -291,7 +291,8 @@ Run in `mastodon-mode-hook'."
   "Check the server for new notifications since NEWEST-ID.
 Runs `mastodon-notifications--modeline-display-unread-count' on the response."
   ;;only run in masto mode:
-  (when (equal major-mode 'mastodon-mode)
+  (when (or (equal major-mode 'mastodon-mode)
+            (string= "*new toot*" (buffer-name)))
     (let ((prev-buffer (current-buffer)))
       (mastodon-http--get-params-async-json
        (mastodon-http--api "notifications")
@@ -318,8 +319,9 @@ Callback for `mastodon-notifications--check-for-new'."
                               'help-echo "mastodon notifications count")))
     (when (and
            ;; mastodon buffer:
-           (string-prefix-p "*mastodon"
-                            (buffer-name buffer))
+           (let ((name (buffer-name buffer)))
+             (or (string-prefix-p "*mastodon" name)
+                 (string= "*new toot*" name)))
            ;; buffer not yet killed:
            (buffer-live-p buffer))
       (with-current-buffer buffer
