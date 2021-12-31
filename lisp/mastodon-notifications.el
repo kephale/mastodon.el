@@ -268,7 +268,7 @@ ID is the notification's own id, which is attached as a property."
   "Display NOTIFICATIONS in buffer."
   (interactive)
   (message "Loading your notifications...")
-  (mastodon-tl--init-sync
+  (mastodon-tl--init
    "notifications"
    "notifications"
    'mastodon-notifications--timeline))
@@ -326,7 +326,11 @@ Callback for `mastodon-notifications--check-for-new'."
         ;; this check prevents reset to 0
         ;; better solution to displaying 0 is to remove it entirely
         ;; (if (> count 0)
-        (setq-local mode-line-misc-info display)))))
+        (setq-local mode-line-misc-info display))
+      ;; reload if in notifs view and we have new notifs:
+      (when (and (equal (buffer-name buffer) "*mastodon-notifications*")
+                 (> count 0))
+        (mastodon-notifications--get)))))
 
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here
