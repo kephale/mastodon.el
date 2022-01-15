@@ -48,6 +48,7 @@
 (autoload 'mastodon-tl--spoiler "mastodon-tl.el")
 (autoload 'mastodon-tl--toot-id "mastodon-tl.el")
 (defvar mastodon-tl--display-media-p)
+(defvar mastodon-tl--buffer-spec)
 
 (defvar mastodon-notifications--types-alist
   '(("mention" . mastodon-notifications--mention)
@@ -55,7 +56,8 @@
     ("favourite" . mastodon-notifications--favourite)
     ("reblog" . mastodon-notifications--reblog)
     ("follow_request" . mastodon-notifications--follow-request)
-    ("status" . mastodon-notifications--status))
+    ("status" . mastodon-notifications--status)
+    ("poll" . mastodon-notifications--poll))
   "Alist of notification types and their corresponding function.")
 
 (defvar mastodon-notifications--response-alist
@@ -64,7 +66,8 @@
     ("Favourited" . "your status from")
     ("Boosted" . "your status from")
     ("Requested to follow" . "you")
-    ("Posted" . "a post"))
+    ("Posted" . "a post")
+    ("Posted a poll" . "that has now ended"))
   "Alist of subjects for notification types.")
 
 (defun mastodon-notifications--byline-concat (message)
@@ -86,10 +89,7 @@ follow-requests view."
            (f-reqs-view-p (string= "follow_requests"
                                    (plist-get mastodon-tl--buffer-spec 'endpoint)))
            (f-req-p (or (string= "follow_request" (alist-get 'type toot-json)) ;notifs
-                        f-reqs-view-p))
-           (accept-reject-string (if reject
-                                     "reject"
-                                   "accept")))
+                        f-reqs-view-p)))
       (if f-req-p
           (let* ((account (or (alist-get 'account toot-json) ;notifs
                               toot-json)) ;f-reqs
@@ -101,14 +101,18 @@ follow-requests view."
                        (mastodon-http--post
                         (concat
                          (mastodon-http--api "follow_requests")
-                         (format "/%s/%s" id accept-reject-string))
+                         (format "/%s/%s" id (if reject
+                                                 "reject"
+                                               "authorize")))
                         nil nil)))
                   (mastodon-http--triage response
                                          (lambda ()
                                            (unless f-reqs-view-p
                                              (mastodon-notifications--get))
-                                           (message "Follow request of %s (@%s) %sed!"
-                                                    name handle accept-reject-string))))
+                                           (message "Follow request of %s (@%s) %s!"
+                                                    name handle (if reject
+                                                                    "rejected"
+                                                                  "accepted")))))
               (message "No account result at point?")))
         (message "No follow request at point?")))))
 
@@ -126,101 +130,80 @@ Can be called in notifications view or in follow-requests view."
 
 (defun mastodon-notifications--mention (note)
   "Format for a `mention' NOTE."
-  (let ((id (alist-get 'id note))
-        (status (mastodon-tl--field 'status note)))
-    (mastodon-notifications--insert-status
-     status
-     (mastodon-tl--clean-tabs-and-nl
-      (if (mastodon-tl--has-spoiler status)
-          (mastodon-tl--spoiler status)
-        (mastodon-tl--content status)))
-     'mastodon-tl--byline-author
-     (lambda (_status)
-       (mastodon-notifications--byline-concat
-        "Mentioned"))
-     id)))
+  (mastodon-notifications--format-note note 'mention))
 
 (defun mastodon-notifications--follow (note)
   "Format for a `follow' NOTE."
-  (mastodon-tl--insert-status
-   ;; Using reblog with an empty id will mark this as something
-   ;; non-boostable/non-favable.
-   (cons '(reblog (id . nil)) note)
-   (propertize "Congratulations, you have a new follower!"
-               'face 'default)
-   'mastodon-tl--byline-author
-   (lambda (_status)
-     (mastodon-notifications--byline-concat
-      "Followed"))))
+  (mastodon-notifications--format-note note 'follow))
 
 (defun mastodon-notifications--follow-request (note)
   "Format for a `follow-request' NOTE."
-  (let ((id (alist-get 'id note))
-        (follower (alist-get 'username (alist-get 'account note))))
-    (mastodon-notifications--insert-status
-     (cons '(reblog (id . nil)) note)
-     (propertize (format "You have a follow request from... %s" follower)
-                 'face 'default)
-     'mastodon-tl--byline-author
-     (lambda (_status)
-       (mastodon-notifications--byline-concat
-        "Requested to follow"))
-     id)))
+  (mastodon-notifications--format-note note 'follow-request))
 
 (defun mastodon-notifications--favourite (note)
   "Format for a `favourite' NOTE."
-  (let ((id (alist-get 'id note))
-        (status (mastodon-tl--field 'status note)))
-    (mastodon-notifications--insert-status
-     status
-     (mastodon-tl--clean-tabs-and-nl
-      (if (mastodon-tl--has-spoiler status)
-          (mastodon-tl--spoiler status)
-        (mastodon-tl--content status)))
-     (lambda (_status)
-       (mastodon-tl--byline-author
-        note))
-     (lambda (_status)
-       (mastodon-notifications--byline-concat
-        "Favourited"))
-     id)))
+  (mastodon-notifications--format-note note 'favorite))
 
 (defun mastodon-notifications--reblog (note)
   "Format for a `boost' NOTE."
-  (let ((id (alist-get 'id note))
-        (status (mastodon-tl--field 'status note)))
-    (mastodon-notifications--insert-status
-     status
-     (mastodon-tl--clean-tabs-and-nl
-      (if (mastodon-tl--has-spoiler status)
-          (mastodon-tl--spoiler status)
-        (mastodon-tl--content status)))
-     (lambda (_status)
-       (mastodon-tl--byline-author
-        note))
-     (lambda (_status)
-       (mastodon-notifications--byline-concat
-        "Boosted"))
-     id)))
+  (mastodon-notifications--format-note note 'boost))
 
 (defun mastodon-notifications--status (note)
   "Format for a `status' NOTE.
 Status notifications are given when
 `mastodon-tl--enable-notify-user-posts' has been set."
-  (let ((id (cdr (assoc 'id note)))
-        (status (mastodon-tl--field 'status note)))
+  (mastodon-notifications--format-note note 'status))
+
+(defun mastodon-notifications--poll (note)
+  "Format for a `poll' NOTE."
+  (mastodon-notifications--format-note note 'poll))
+
+(defun mastodon-notifications--format-note (note type)
+  "Format for a NOTE of TYPE."
+  (let ((id (alist-get 'id note))
+        (status (mastodon-tl--field 'status note))
+        (follower (alist-get 'username (alist-get 'account note))))
     (mastodon-notifications--insert-status
-     status
-     (mastodon-tl--clean-tabs-and-nl
-      (if (mastodon-tl--has-spoiler status)
-          (mastodon-tl--spoiler status)
-        (mastodon-tl--content status)))
-     (lambda (_status)
-       (mastodon-tl--byline-author
-        note))
+     (if (or (equal type 'follow)
+             (equal type 'follow-request))
+         ;; Using reblog with an empty id will mark this as something
+         ;; non-boostable/non-favable.
+         (cons '(reblog (id . nil)) note)
+       status)
+     (if (or (equal type 'follow)
+             (equal type 'follow-request))
+         (propertize (if (equal type 'follow)
+                         "Congratulations, you have a new follower!"
+                       (format "You have a follow request from... %s"
+                               follower))
+                       'face 'default)
+       (mastodon-tl--clean-tabs-and-nl
+        (if (mastodon-tl--has-spoiler status)
+            (mastodon-tl--spoiler status)
+          (mastodon-tl--content status))))
+     (if (or (equal type 'follow)
+             (equal type 'follow-request)
+             (equal type 'mention))
+         'mastodon-tl--byline-author
+       (lambda (_status)
+         (mastodon-tl--byline-author
+          note)))
      (lambda (_status)
        (mastodon-notifications--byline-concat
-        "Posted"))
+        (cond ((equal type 'boost)
+               "Boosted")
+              ((equal type 'favorite)
+               "Favourited")
+              ((equal type 'follow-request)
+               "Requested to follow")
+              ((equal type 'follow)
+               "Followed")
+              ((equal type 'mention)
+               "Mentioned")
+              ((equal type 'status)
+               "Posted")
+              ((equal type 'poll)
+               "Posted a poll"))))
      id)))
 
 (defun mastodon-notifications--insert-status (toot body author-byline action-byline id)
