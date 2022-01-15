@@ -50,6 +50,8 @@
 (autoload 'mastodon-tl--property "mastodon-tl.el")
 (autoload 'mastodon-tl--spoiler "mastodon-tl.el")
 (autoload 'mastodon-tl--toot-id "mastodon-tl.el")
+(autoload 'mastodon-http--get-params-async-json "mastodon-http.el")
+(defvar mastodon-tl--buffer-spec)
 (defvar mastodon-tl--display-media-p)
 (defvar mastodon-tl--buffer-spec)
 
