@@ -460,22 +460,23 @@ By default it is `mastodon-tl--byline-boosted'"
 
 The contents comes from the given TOOT which is used in parsing
 links in the text. If TOOT is nil no parsing occurs."
-  (with-temp-buffer
-    (insert string)
-    (let ((shr-use-fonts mastodon-tl--enable-proportional-fonts)
-          (shr-width (when mastodon-tl--enable-proportional-fonts
-                       (- (window-width) 1))))
-      (shr-render-region (point-min) (point-max)))
-    ;; Make all links a tab stop recognized by our own logic, make things point
-    ;; to our own logic (e.g. hashtags), and update keymaps where needed:
-    (when toot
-      (let (region)
-        (while (setq region (mastodon-tl--find-property-range
-                             'shr-url (or (cdr region) (point-min))))
-          (mastodon-tl--process-link toot
-                                     (car region) (cdr region)
-                                     (get-text-property (car region) 'shr-url)))))
-    (buffer-string)))
+  (when string ; handle rare empty notif server bug
+    (with-temp-buffer
+      (insert string)
+      (let ((shr-use-fonts mastodon-tl--enable-proportional-fonts)
+            (shr-width (when mastodon-tl--enable-proportional-fonts
+                         (- (window-width) 1))))
+        (shr-render-region (point-min) (point-max)))
+      ;; Make all links a tab stop recognized by our own logic, make things point
+      ;; to our own logic (e.g. hashtags), and update keymaps where needed:
+      (when toot
+        (let (region)
+          (while (setq region (mastodon-tl--find-property-range
+                               'shr-url (or (cdr region) (point-min))))
+            (mastodon-tl--process-link toot
+                                       (car region) (cdr region)
+                                       (get-text-property (car region) 'shr-url)))))
+      (buffer-string))))
 
 (defun mastodon-tl--process-link (toot start end url)
   "Process link URL in TOOT as hashtag, userhandle, or normal link.
@@ -1090,7 +1091,7 @@ NOTIFY is only non-nil when called by `mastodon-tl--follow-user'."
                       ;; if unmuting/unblocking, we got handle from mute/block list
                       (mastodon-profile--search-account-by-handle
                        user-handle)
-                      ;; if muting/blocking, we select from handles in current status
+                    ;; if muting/blocking, we select from handles in current status
                     (mastodon-profile--lookup-account-in-status
                      user-handle (mastodon-profile--toot-json))))
          (user-id (mastodon-profile--account-field account 'id))

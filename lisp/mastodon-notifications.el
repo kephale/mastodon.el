@@ -251,7 +251,8 @@ takes a single function. By default it is
 `mastodon-tl--byline-boosted'.
 
 ID is the notification's own id, which is attached as a property."
-  (mastodon-tl--insert-status toot body author-byline action-byline id))
+  (when toot ; handle rare blank notif server bug
+    (mastodon-tl--insert-status toot body author-byline action-byline id)))
 
 (defun mastodon-notifications--by-type (note)
   "Filters NOTE for those listed in `mastodon-notifications--types-alist'."
