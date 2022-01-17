@@ -30,9 +30,12 @@
 
 ;;; Code:
 
+(require 'persist)
+
 (autoload 'mastodon-http--api "mastodon-http.el")
 (autoload 'mastodon-http--post "mastodon-http.el")
 (autoload 'mastodon-http--triage "mastodon-http.el")
+(autoload 'mastodon-http--get-params-async-json "mastodon-http.el")
 (autoload 'mastodon-media--inline-images "mastodon-media.el")
 (autoload 'mastodon-tl--byline "mastodon-tl.el")
 (autoload 'mastodon-tl--byline-author "mastodon-tl.el")
@@ -70,8 +73,9 @@
     ("Posted a poll" . "that has now ended"))
   "Alist of subjects for notification types.")
 
-(defvar mastodon-notifications-newest-id nil
-  "The ID of the newest notification already loaded and seen locally.")
+(persist-defvar mastodon-notifications-newest-id nil
+  "The ID of the newest notification already loaded and seen
+  locally. It's value is saved between sessions by `persist'.")
 
 (defvar mastodon-notifications-new-notifications-timer nil
   "The timer object used to check for new notifications.")
