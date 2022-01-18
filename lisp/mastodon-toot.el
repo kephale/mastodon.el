@@ -899,6 +899,7 @@ REPLY-JSON is the full JSON of the toot being replied to."
     (make-local-variable 'after-change-functions)
     (push #'mastodon-toot--update-status-fields after-change-functions)
     (mastodon-toot--refresh-attachments-display)
+    (mastodon-notifications--set-and-run-timer)
     (mastodon-toot--update-status-fields)))
 
 (define-minor-mode mastodon-toot-mode

@@ -272,7 +272,7 @@ Run in `mastodon-mode-hook'."
   (when mastodon-notifications-new-notifications-timer
     (cancel-timer mastodon-notifications-new-notifications-timer))
   (setq mastodon-notifications-new-notifications-timer
-        (run-at-time 0.5 5 #'mastodon-notifications--check-for-new-timer)))
+        (run-at-time nil 5 #'mastodon-notifications--check-for-new-timer)))
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.

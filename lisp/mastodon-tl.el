@@ -1339,6 +1339,7 @@ JSON is the data returned from the server."
   (when (equal endpoint "follow_requests")
     (mastodon-profile-mode))
   (with-current-buffer buffer
+    (mastodon-notifications--set-and-run-timer)
     (setq mastodon-tl--buffer-spec
           `(buffer-name ,buffer
                         endpoint ,endpoint
