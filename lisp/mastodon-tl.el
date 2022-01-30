@@ -56,7 +56,9 @@
 (autoload 'mastodon-http--get-json-async "mastodon-http")
 (autoload 'mastodon-profile--lookup-account-in-status "mastodon-profile")
 (autoload 'mastodon-profile-mode "mastodon-profile")
-(autoload 'mastodon-notifications--get "mastodon-notifications")
+;; make notifications--get available via M-x and outside our keymap:
+(autoload 'mastodon-notifications--get "mastodon-notifications"
+  "Display NOTIFICATIONS in buffer." t) ; interactive
 (defvar mastodon-instance-url)
 (defvar mastodon-toot-timestamp-format)
 (defvar shr-use-fonts)  ;; declare it since Emacs24 didn't have this
