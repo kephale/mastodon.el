@@ -53,6 +53,28 @@
 (defvar mastodon-tl--display-media-p)
 (defvar mastodon-tl--buffer-spec)
 
+(defgroup mastodon-notifications nil
+  "Notifications in mastodon."
+  :prefix "mastodon-notifications-"
+  :group 'mastodon)
+
+(defcustom mastodon-notifications-reload-when-new t
+  "Reload the notifications timeline when new notifications are found.
+The check is done by `mastodon-notifications--check-for-new'. You
+may want to disable this if you often get a lot of notifications at
+once and the constant reloading is an interruption."
+  :group 'mastodon-notifications
+  :type 'boolean)
+
+(defcustom mastodon-notifications-display-modeline-count nil
+  "Display unread notifications count in the modeline."
+  :group 'mastodon-notifications
+  :type 'boolean)
+
+(persist-defvar mastodon-notifications-newest-id nil
+  "The ID of the newest notification already loaded and seen
+  locally. It's value is saved between sessions by `persist'.")
+
 (defvar mastodon-notifications--types-alist
   '(("mention" . mastodon-notifications--mention)
     ("follow" . mastodon-notifications--follow)
@@ -72,23 +94,6 @@
     ("Posted" . "a post")
     ("Posted a poll" . "that has now ended"))
   "Alist of subjects for notification types.")
-
-(persist-defvar mastodon-notifications-newest-id nil
-  "The ID of the newest notification already loaded and seen
-  locally. It's value is saved between sessions by `persist'.")
-
-(defgroup mastodon-notifications
-  "Notifications in mastodon."
-  :prefix "mastodon-notifications-"
-  :group 'mastodon)
-
-(defcustom mastodon-notifications-reload-when-new t
-  "Whether to reload the notifications timeline when
-`mastodon-notifications--check-for-new' finds new notifications
-since last check. You may want to disable this if you get a lot
-of notifications at once and the constant reloading is a bother."
-  :group 'mastodon-notifications
-  :type 'boolean)
 
 (defvar mastodon-notifications-new-notifications-timer nil
   "The timer object used to check for new notifications.")
@@ -274,14 +279,14 @@ ID is the notification's own id, which is attached as a property."
    'mastodon-notifications--timeline))
 
 (defun mastodon-notifications--check-for-new-timer ()
-  "Run `mastodon-notifications--check-for-new' via a timer.
-Easy coz no args hassle."
+  "Run `mastodon-notifications--check-for-new' with arg `mastodon-notifications-newest-id'."
   (mastodon-notifications--check-for-new mastodon-notifications-newest-id))
 
 (defun mastodon-notifications--set-and-run-timer ()
   "Run a timer to check for new notifications.
 First we cancel any existing timers to avoid them accumulating.
-Run in `mastodon-mode-hook'."
+Run in `mastodon-mode-hook' if
+`mastodon-notifications-display-modeline-count' is t."
   (when mastodon-notifications-new-notifications-timer
     (cancel-timer mastodon-notifications-new-notifications-timer))
   (setq mastodon-notifications-new-notifications-timer
@@ -289,8 +294,9 @@ Run in `mastodon-mode-hook'."
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.
-Runs `mastodon-notifications--modeline-display-unread-count' on the response."
-  ;;only run in masto mode:
+Runs `mastodon-notifications--modeline-display-unread-count' on
+the response."
+  ;;only in masto mode:
   (when (or (equal major-mode 'mastodon-mode)
             (string= "*new toot*" (buffer-name)))
     (let ((prev-buffer (current-buffer)))
@@ -317,17 +323,10 @@ Callback for `mastodon-notifications--check-for-new'."
          (display (propertize (concat notifs-display count-display)
                               'mouse-face 'mode-line-highlight
                               'help-echo "mastodon notifications count")))
-    (when (and
-           ;; mastodon buffer:
-           (let ((name (buffer-name buffer)))
-             (or (string-prefix-p "*mastodon" name)
-                 (string= "*new toot*" name)))
-           ;; buffer not yet killed:
-           (buffer-live-p buffer))
+    (when
+        ;; buffer not yet killed:
+        (buffer-live-p buffer);)
       (with-current-buffer buffer
-        ;; this check prevents reset to 0
-        ;; better solution to displaying 0 is to remove it entirely
-        ;; (if (> count 0)
         (setq-local mode-line-misc-info display))
       ;; reload if in notifs view and we have new notifs:
       (when (and mastodon-notifications-reload-when-new

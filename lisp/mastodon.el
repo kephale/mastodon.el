@@ -229,7 +229,8 @@ If REPLY-JSON is the json of the toot being replied to."
                                   (emojify-mode t)
                                   (when mastodon-toot--enable-custom-instance-emoji
                                     (mastodon-toot--enable-custom-emoji)))
-                                (mastodon-notifications--set-and-run-timer)))
+                                (when mastodon-notifications-display-modeline-count
+                                  (mastodon-notifications--set-and-run-timer))))
 
 (define-derived-mode mastodon-mode special-mode "Mastodon"
   "Major mode for Mastodon, the federated microblogging network."
