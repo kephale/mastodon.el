@@ -30,7 +30,7 @@
 
 ;;; Code:
 
-(require 'persist)
+(require 'persist) ; for saving notifications count
 
 (autoload 'mastodon-http--api "mastodon-http.el")
 (autoload 'mastodon-http--post "mastodon-http.el")
@@ -76,6 +76,19 @@
 (persist-defvar mastodon-notifications-newest-id nil
   "The ID of the newest notification already loaded and seen
   locally. It's value is saved between sessions by `persist'.")
+
+(defgroup mastodon-notifications
+  "Notifications in mastodon."
+  :prefix "mastodon-notifications-"
+  :group 'mastodon)
+
+(defcustom mastodon-notifications-reload-when-new t
+  "Whether to reload the notifications timeline when
+`mastodon-notifications--check-for-new' finds new notifications
+since last check. You may want to disable this if you get a lot
+of notifications at once and the constant reloading is a bother."
+  :group 'mastodon-notifications
+  :type 'boolean)
 
 (defvar mastodon-notifications-new-notifications-timer nil
   "The timer object used to check for new notifications.")
@@ -317,7 +330,8 @@ Callback for `mastodon-notifications--check-for-new'."
         ;; (if (> count 0)
         (setq-local mode-line-misc-info display))
       ;; reload if in notifs view and we have new notifs:
-      (when (and (equal (buffer-name buffer) "*mastodon-notifications*")
+      (when (and mastodon-notifications-reload-when-new
+                 (equal (buffer-name buffer) "*mastodon-notifications*")
                  (> count 0))
         (mastodon-notifications--get)))))
 
