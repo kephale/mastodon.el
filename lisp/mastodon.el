@@ -32,8 +32,10 @@
 
 ;;; Code:
 (require 'cl-lib) ; for `cl-some' call in mastodon
-;; hack to make mastodon-toot customizes visible prior to running mastodon-toot:
+
+;; to make customizes visible prior to running mastodon-toot or mastodon-notifications--get:
 (require 'mastodon-toot)
+(require 'mastodon-notifications)
 
 (declare-function discover-add-context-menu "discover")
 (declare-function emojify-mode "emojify")

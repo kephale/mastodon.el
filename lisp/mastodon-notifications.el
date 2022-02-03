@@ -66,7 +66,7 @@ once and the constant reloading is an interruption."
   :group 'mastodon-notifications
   :type 'boolean)
 
-(defcustom mastodon-notifications-display-modeline-count nil
+(defcustom mastodon-notifications-display-modeline-count t
   "Display unread notifications count in the modeline."
   :group 'mastodon-notifications
   :type 'boolean)
