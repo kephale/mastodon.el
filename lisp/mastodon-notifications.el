@@ -55,11 +55,13 @@
 (defvar mastodon-tl--display-media-p)
 (defvar mastodon-tl--buffer-spec)
 
+;;;###autoload
 (defgroup mastodon-notifications nil
   "Notifications in mastodon."
   :prefix "mastodon-notifications-"
   :group 'mastodon)
 
+;;;###autoload
 (defcustom mastodon-notifications-reload-when-new t
   "Reload the notifications timeline when new notifications are found.
 The check is done by `mastodon-notifications--check-for-new'. You
@@ -68,6 +70,7 @@ once and the constant reloading is an interruption."
   :group 'mastodon-notifications
   :type 'boolean)
 
+;;;###autoload
 (defcustom mastodon-notifications-display-modeline-count t
   "Display unread notifications count in the modeline."
   :group 'mastodon-notifications

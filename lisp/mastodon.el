@@ -35,7 +35,7 @@
 
 ;; to make customizes visible prior to running mastodon-toot or mastodon-notifications--get:
 (require 'mastodon-toot)
-(require 'mastodon-notifications)
+;; (require 'mastodon-notifications)
 
 (declare-function discover-add-context-menu "discover")
 (declare-function emojify-mode "emojify")
@@ -90,6 +90,7 @@
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
 (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
+;; (defvar mastodon-notifications-display-modeline-count)
 
 (defgroup mastodon nil
   "Interface with Mastodon."
