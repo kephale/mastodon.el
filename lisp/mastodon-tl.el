@@ -59,6 +59,7 @@
 ;; make notifications--get available via M-x and outside our keymap:
 (autoload 'mastodon-notifications--get "mastodon-notifications"
   "Display NOTIFICATIONS in buffer." t) ; interactive
+(autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
 (defvar mastodon-instance-url)
 (defvar mastodon-toot-timestamp-format)
 (defvar shr-use-fonts)  ;; declare it since Emacs24 didn't have this

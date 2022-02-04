@@ -57,6 +57,7 @@
 (autoload 'mastodon-http--process-json "mastodon-http")
 (autoload 'mastodon-http--read-file-as-string "mastodon-http")
 (autoload 'mastodon-http--triage "mastodon-http")
+(autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
 (autoload 'mastodon-search--search-accounts-query "mastodon-search")
 (autoload 'mastodon-tl--as-string "mastodon-tl")
 (autoload 'mastodon-tl--clean-tabs-and-nl "mastodon-tl")
