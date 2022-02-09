@@ -269,11 +269,13 @@ ID is the notification's own id, which is attached as a property."
 
 (defun mastodon-notifications--timeline (json)
   "Format JSON in Emacs buffer."
-  (mapc #'mastodon-notifications--by-type json)
-  (goto-char (point-min))
-  ;;set newest ID for notifications modeline alerts:
-  (setq mastodon-notifications-newest-id
-        (mastodon-tl--property 'toot-id)))
+  (if (equal json '[])
+      (message "Looks like you have no notifications for the moment.")
+    (mapc #'mastodon-notifications--by-type json)
+    (goto-char (point-min))
+    ;;set newest ID for notifications modeline alerts:
+    (setq mastodon-notifications-newest-id
+          (mastodon-tl--property 'toot-id))))
 
 (defun mastodon-notifications--get ()
   "Display NOTIFICATIONS in buffer."

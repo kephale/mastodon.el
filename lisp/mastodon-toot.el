@@ -2,6 +2,7 @@
 
 ;; Copyright (C) 2017-2019 Johnson Denen
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
+;;         Marty Hiatt <martianhiatus@riseup.net>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1"))
@@ -70,11 +71,13 @@
 (autoload 'mastodon-tl--toot-id "mastodon-tl")
 (autoload 'mastodon-toot "mastodon")
 
+;;;###autoload
 (defgroup mastodon-toot nil
   "Tooting in Mastodon."
   :prefix "mastodon-toot-"
   :group 'mastodon)
 
+;;;###autoload
 (defcustom mastodon-toot--default-visibility "public"
   "The default visibility for new toots.
 
@@ -87,16 +90,19 @@ followers-only), or \"direct\"."
           (const :tag "followers only" "private")
           (const :tag "direct" "direct")))
 
+;;;###autoload
 (defcustom mastodon-toot--default-media-directory "~/"
   "The default directory when prompting for a media file to upload."
   :group 'mastodon-toot
   :type 'string)
 
+;;;###autoload
 (defcustom mastodon-toot--attachment-height 80
   "Height of the attached images preview in the toot draft buffer."
   :group 'mastodon-toot
   :type 'integer)
 
+;;;###autoload
 (defcustom mastodon-toot--enable-completion-for-mentions
   (if (require 'company nil :noerror) "following" "off")
   "Whether to enable company completion for mentions.
@@ -110,6 +116,7 @@ This is only used if company mode is installed."
           (const :tag "following only" "following")
           (const :tag "all users" "all")))
 
+;;;###autoload
 (defcustom mastodon-toot--enable-custom-instance-emoji nil
   "Whether to enable your instance's custom emoji by default."
   :group 'mastodon-toot

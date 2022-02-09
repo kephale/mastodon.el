@@ -1,8 +1,7 @@
 ;;; mastodon-search.el --- Search functions for mastodon.el  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2017-2019 Johnson Denen
-;; Author: Johnson Denen <johnson.denen@gmail.com>
-;;         Marty Hiatt <martianhiatus@riseup.net>
+;; Copyright (C) 2017-2019 Marty Hiatt
+;; Author: Marty Hiatt <martianhiatus@riseup.net>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1"))
@@ -58,7 +57,7 @@
   "Prompt for a search QUERY and return accounts synchronously.
 Returns a nested list containing user handle, display name, and URL."
   (interactive "sSearch mastodon for: ")
-  (let* ((url (format "%s/api/v1/accounts/search" mastodon-instance-url))
+  (let* ((url (mastodon-http--api "accounts/search"))
          ;; (buffer (format "*mastodon-search-%s*" query))
          (response (if (equal mastodon-toot--enable-completion-for-mentions "following")
                        (mastodon-http--get-search-json url query "following=true")
@@ -98,19 +97,7 @@ Returns a nested list containing user handle, display name, and URL."
                          " USERS\n"
                          " ------------\n\n")
                  'success))
-        (mapc (lambda (el)
-                (insert (propertize (car el) 'face 'mastodon-display-name-face)
-                        " : \n : "
-                        (propertize (concat "@" (car (cdr el)))
-                                    'face 'mastodon-handle-face
-                                    'mouse-face 'highlight
-		                    'mastodon-tab-stop 'user-handle
-		                    'keymap mastodon-tl--link-keymap
-                                    'mastodon-handle (concat "@" (car (cdr el)))
-		                    'help-echo (concat "Browse user profile of @" (car (cdr el))))
-                        " : \n"
-                        "\n"))
-              user-ids)
+        (mastodon-search--insert-users-propertized user-ids :note)
         ;; hashtag results:
         (insert (mastodon-tl--set-face
                  (concat "\n ------------\n"
@@ -136,11 +123,33 @@ Returns a nested list containing user handle, display name, and URL."
         (mapc 'mastodon-tl--toot toots-list-json)
         (goto-char (point-min))))))
 
+(defun mastodon-search--insert-users-propertized (users &optional note)
+  "Insert USERS list into the buffer.
+If NOTE is non-nil, include user's profile note.
+This is also called by `mastodon-tl--get-follow-suggestions'."
+  (mapc (lambda (el)
+          (insert (propertize (car el) 'face 'mastodon-display-name-face)
+                  " : \n : "
+                  (propertize (concat "@" (car (cdr el)))
+                              'face 'mastodon-handle-face
+                              'mouse-face 'highlight
+		                      'mastodon-tab-stop 'user-handle
+		                      'keymap mastodon-tl--link-keymap
+                              'mastodon-handle (concat "@" (car (cdr el)))
+		                      'help-echo (concat "Browse user profile of @" (car (cdr el))))
+                  " : \n"
+                  (if note
+                      (mastodon-tl--render-text (cadddr el) nil)
+                  "")
+                  "\n"))
+        users))
+
 (defun mastodon-search--get-user-info (account)
-  "Get user handle, display name and account URL from ACCOUNT."
+  "Get user handle, display name, account URL and profile note from ACCOUNT."
   (list (alist-get 'display_name account)
         (alist-get 'acct account)
-        (alist-get 'url account)))
+        (alist-get 'url account)
+        (alist-get 'note account)))
 
 (defun mastodon-search--get-hashtag-info (tag)
   "Get hashtag name and URL from TAG."

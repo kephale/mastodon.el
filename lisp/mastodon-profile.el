@@ -146,7 +146,6 @@ extra keybindings."
 (defun mastodon-profile--view-follow-requests ()
   "Open a new buffer displaying the user's follow requests."
   (interactive)
-  (mastodon-profile-mode)
   (mastodon-tl--init "follow-requests"
                      "follow_requests"
                      'mastodon-profile--add-author-bylines))
@@ -386,20 +385,22 @@ FIELD is used to identify regions under 'account"
 (defun mastodon-profile--add-author-bylines (tootv)
   "Convert TOOTV into a author-bylines and insert."
   (let ((inhibit-read-only t))
-    (mapc (lambda (toot)
-            (let ((start-pos (point)))
-              (insert "\n"
-                      (propertize
-                       (mastodon-tl--byline-author `((account . ,toot)))
-                       'byline  't
-                       'toot-id (alist-get 'id toot)
-                       'base-toot-id (mastodon-tl--toot-id toot)
-                       'toot-json toot))
-              (mastodon-media--inline-images start-pos (point))
-              (insert "\n"
-                      (mastodon-tl--render-text (alist-get 'note toot) nil)
-                      "\n")))
-          tootv)))
+    (if (equal tootv '[])
+        (message "Looks like you have no follow requests for the moment.")
+      (mapc (lambda (toot)
+              (let ((start-pos (point)))
+                (insert "\n"
+                        (propertize
+                         (mastodon-tl--byline-author `((account . ,toot)))
+                         'byline  't
+                         'toot-id (alist-get 'id toot)
+                         'base-toot-id (mastodon-tl--toot-id toot)
+                         'toot-json toot))
+                (mastodon-media--inline-images start-pos (point))
+                (insert "\n"
+                        (mastodon-tl--render-text (alist-get 'note toot) nil)
+                        "\n")))
+            tootv))))
 
 (defun mastodon-profile--search-account-by-handle (handle)
   "Return an account based on a user's HANDLE.

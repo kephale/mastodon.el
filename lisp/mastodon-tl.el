@@ -2,6 +2,7 @@
 
 ;; Copyright (C) 2017-2019 Johnson Denen
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
+;;         Marty Hiatt <martianhiatus@riseup.net>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1"))
@@ -60,6 +61,7 @@
 (autoload 'mastodon-notifications--get "mastodon-notifications"
   "Display NOTIFICATIONS in buffer." t) ; interactive
 (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
+(autoload 'mastodon-search--insert-users-propertized "mastodon-search")
 (defvar mastodon-instance-url)
 (defvar mastodon-toot-timestamp-format)
 (defvar shr-use-fonts)  ;; declare it since Emacs24 didn't have this
@@ -976,20 +978,41 @@ webapp"
     (if (> (+ (length (alist-get 'ancestors context))
               (length (alist-get 'descendants context)))
            0)
-        (with-output-to-temp-buffer buffer
-          (switch-to-buffer buffer)
-          (mastodon-mode)
-          (setq mastodon-tl--buffer-spec
-                `(buffer-name ,buffer
-                              endpoint ,(format "statuses/%s/context" id)
-                              update-function
-                              (lambda(toot) (message "END of thread."))))
-          (let ((inhibit-read-only t))
-            (mastodon-tl--timeline (vconcat
-                                    (alist-get 'ancestors context)
-                                    `(,toot)
-                                    (alist-get 'descendants context)))))
+        (progn
+          (with-output-to-temp-buffer buffer
+            (switch-to-buffer buffer)
+            (mastodon-mode)
+            (setq mastodon-tl--buffer-spec
+                  `(buffer-name ,buffer
+                                endpoint ,(format "statuses/%s/context" id)
+                                update-function
+                                (lambda (toot) (message "END of thread."))))
+            (let ((inhibit-read-only t))
+              (mastodon-tl--timeline (vconcat
+                                      (alist-get 'ancestors context)
+                                      `(,toot)
+                                      (alist-get 'descendants context)))))
+          (mastodon-tl--goto-next-toot))
       (message "No Thread!"))))
+
+(defun mastodon-tl--get-follow-suggestions ()
+"Display a buffer of suggested accounts to follow."
+  (interactive)
+  (let* ((buffer (format "*mastodon-follow-suggestions*"))
+         (response
+          (mastodon-http--get-json
+           (mastodon-http--api "suggestions")))
+         (users (mapcar 'mastodon-search--get-user-info response)))
+    (with-output-to-temp-buffer buffer
+      (let ((inhibit-read-only t))
+        (switch-to-buffer buffer)
+        (mastodon-mode)
+        (insert (mastodon-tl--set-face
+                 (concat "\n ------------\n"
+                         " SUGGESTED ACCOUNTS\n"
+                         " ------------\n\n")
+                 'success))
+        (mastodon-search--insert-users-propertized users :note)))))
 
 (defun mastodon-tl--follow-user (user-handle &optional notify)
   "Query for USER-HANDLE from current status and follow that user.
@@ -1339,6 +1362,7 @@ JSON is the data returned from the server."
      mastodon-tl--timestamp-next-update (time-add (current-time)
                                                   (seconds-to-time 300)))
     (funcall update-function json))
+  (mastodon-tl--goto-next-toot)
   (mastodon-mode)
   (when (equal endpoint "follow_requests")
     (mastodon-profile-mode))
