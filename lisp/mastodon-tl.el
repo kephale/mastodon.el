@@ -1323,7 +1323,7 @@ from the start if it is nil."
                            (copy-marker previous-timestamp))
             ;; otherwise we are done for now; schedule a new run for when needed
             (setq mastodon-tl--timestamp-update-timer
-                  (run-at-time mastodon-tl--timestamp-next-update
+                  (run-at-time 300 ; mastodon-tl--timestamp-next-update
                                nil ;; don't repeat
                                #'mastodon-tl--update-timestamps-callback
                                buffer nil))))))))
