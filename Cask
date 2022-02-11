@@ -6,6 +6,7 @@
 
 (depends-on "request")
 (depends-on "seq")
+(depends-on "persist")
 
 (development
  (depends-on "ert-runner")
