@@ -32,6 +32,7 @@
 
 ;;; Code:
 (require 'cl-lib) ; for `cl-some' call in mastodon
+(require 'mastodon-toot)
 
 (declare-function discover-add-context-menu "discover")
 (declare-function emojify-mode "emojify")
@@ -52,10 +53,10 @@
 (autoload 'mastodon-profile--get-toot-author "mastodon-profile")
 (autoload 'mastodon-profile--make-author-buffer "mastodon-profile")
 (autoload 'mastodon-profile--show-user "mastodon-profile")
-(autoload 'mastodon-toot--compose-buffer "mastodon-toot")
-(autoload 'mastodon-toot--reply "mastodon-toot")
-(autoload 'mastodon-toot--toggle-boost "mastodon-toot")
-(autoload 'mastodon-toot--toggle-favourite "mastodon-toot")
+;; (autoload 'mastodon-toot--compose-buffer "mastodon-toot")
+;; (autoload 'mastodon-toot--reply "mastodon-toot")
+;; (autoload 'mastodon-toot--toggle-boost "mastodon-toot")
+;; (autoload 'mastodon-toot--toggle-favourite "mastodon-toot")
 (autoload 'mastodon-discover "mastodon-discover")
 
 (autoload 'mastodon-tl--block-user "mastodon-tl")
@@ -70,9 +71,9 @@
 (autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
 (autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
 (autoload 'mastodon-search--search-query "mastodon-search")
-(autoload 'mastodon-toot--delete-toot "mastodon-toot")
-(autoload 'mastodon-toot--copy-toot-url "mastodon-toot")
-(autoload 'mastodon-toot--pin-toot-toggle "mastodon-toot")
+;; (autoload 'mastodon-toot--delete-toot "mastodon-toot")
+;; (autoload 'mastodon-toot--copy-toot-url "mastodon-toot")
+;; (autoload 'mastodon-toot--pin-toot-toggle "mastodon-toot")
 (autoload 'mastodon-auth--get-account-name "mastodon-auth")
 ;; (autoload 'mastodon-async--stream-federated "mastodon-async")
 ;; (autoload 'mastodon-async--stream-local "mastodon-async")
@@ -82,13 +83,11 @@
 (autoload 'mastodon-profile--update-user-profile-note "mastodon-profile")
 (autoload 'mastodon-auth--user-acct "mastodon-auth")
 (autoload 'mastodon-tl--poll-vote "mastodon-http")
-(autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
+;; (autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
-(autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
-(autoload 'mastodon-toot--enable-custom-emoji "mastodon-toot")
-(defvar mastodon-toot--enable-custom-instance-emoji)
 (defvar mastodon-notifications-display-modeline-count)
+;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
 
 (defgroup mastodon nil
   "Interface with Mastodon."
