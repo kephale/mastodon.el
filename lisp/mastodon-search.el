@@ -39,6 +39,7 @@
 (autoload 'mastodon-tl--as-string "mastodon-tl")
 (autoload 'mastodon-auth--access-token "mastodon-auth")
 (autoload 'mastodon-http--get-search-json "mastodon-http")
+(autoload 'mastodon-http--api "mastodon-http")
 
 (defvar mastodon-instance-url)
 (defvar mastodon-tl--link-keymap)

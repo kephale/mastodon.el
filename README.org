@@ -34,6 +34,7 @@ It adds the following features:
 |                 | images scale properly                                                              |
 |                 | toot visibility (direct, followers only) icon appears in toot bylines              |
 |                 | display toot's number of favorites, boosts and replies                             |
+|                 | play gifs and videos (requires =mpv= to be installed)                              |
 |                 | customize option to cache images                                                   |
 | Toots:          |                                                                                    |
 |                 | mention booster in replies by default                                              |

@@ -195,7 +195,10 @@ Remove MARKER if REMOVE is non-nil, otherwise add it."
       (unless remove
         (goto-char bol)
         (insert (format "(%s) "
-                        (propertize marker 'face 'success)))))))
+                        (propertize marker 'face 'success)))))
+    ;; leave point after the marker:
+    (unless remove
+        (mastodon-tl--goto-next-toot))))
 
 (defun mastodon-toot--action (action callback)
   "Take ACTION on toot at point, then execute CALLBACK.

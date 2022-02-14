@@ -36,6 +36,8 @@
 (require 'time-date)
 (require 'cl-lib) ; for cl-mapcar
 
+(require 'mpv nil :no-error)
+
 (autoload 'mastodon-auth--get-account-name "mastodon-auth")
 (autoload 'mastodon-http--api "mastodon-http")
 (autoload 'mastodon-http--get-json "mastodon-http")
@@ -62,6 +64,8 @@
   "Display NOTIFICATIONS in buffer." t) ; interactive
 (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
 (autoload 'mastodon-search--insert-users-propertized "mastodon-search")
+(when (require 'mpv nil :no-error)
+  (declare-function mpv-start "mpv"))
 (defvar mastodon-instance-url)
 (defvar mastodon-toot-timestamp-format)
 (defvar shr-use-fonts)  ;; declare it since Emacs24 didn't have this
@@ -157,11 +161,20 @@ types of mastodon links and not just shr.el-generated ones.")
     (define-key map (kbd "u") 'mastodon-tl--update)
     ;; keep new my-profile binding; shr 'O' doesn't work here anyway
     (define-key map (kbd "O") 'mastodon-profile--my-profile)
+    (define-key map (kbd "<C-return>") 'mastodon-tl--mpv-play-video-at-point)
     (keymap-canonicalize map))
   "The keymap to be set for shr.el generated image links.
 
 We need to override the keymap so tabbing will navigate to all
 types of mastodon links and not just shr.el-generated ones.")
+
+(defvar mastodon-tl--byline-link-keymap
+  (when (require 'mpv nil :no-error)
+    (let ((map (make-sparse-keymap)))
+      (define-key map (kbd "<C-return>") 'mastodon-tl--mpv-play-video-from-byline)
+      (keymap-canonicalize map)))
+  "The keymap to be set for the author byline.
+The idea is that you can play media without navigating to it.")
 
 (defun mastodon-tl--next-tab-item ()
   "Move to the next interesting item.
@@ -293,6 +306,9 @@ Optionally start from POS."
        (mastodon-media--get-avatar-rendering avatar-url))
      (propertize name
                  'face 'mastodon-display-name-face
+                 ;; enable playing of videos when point is on byline:
+                 'attachments (mastodon-tl--get-attachments-for-byline toot)
+                 'keymap mastodon-tl--byline-link-keymap
                  ;; echo faves count when point on post author name:
                  ;; which is where --goto-next-toot puts point.
                  'help-echo
@@ -301,29 +317,61 @@ Optionally start from POS."
      (propertize (concat "@" handle)
                  'face 'mastodon-handle-face
                  'mouse-face 'highlight
-		         ;; TODO: Replace url browsing with native profile viewing
-		         'mastodon-tab-stop 'user-handle
+		 'mastodon-tab-stop 'user-handle
                  'account account
-		         'shr-url profile-url
-		         'keymap mastodon-tl--link-keymap
+		 'shr-url profile-url
+		 'keymap mastodon-tl--link-keymap
                  'mastodon-handle (concat "@" handle)
-		         'help-echo (concat "Browse user profile of @" handle))
+		 'help-echo (concat "Browse user profile of @" handle))
      ")")))
 
 (defun mastodon-tl--format-faves-count (toot)
   "Format a favorites, boosts, replies count for a TOOT.
-Used to help-echo when point is at the start of a byline,
-i.e. where `mastodon-tl--goto-next-toot' leaves point."
-  (let ((toot-to-count
-         (or
-          ;; simply praying this order works
-          (alist-get 'status toot) ; notifications timeline
-          (alist-get 'reblog toot) ; boosts
-          toot))) ; everything else
-    (format "%s faves | %s boosts | %s replies"
-            (alist-get 'favourites_count toot-to-count)
-            (alist-get 'reblogs_count toot-to-count)
-            (alist-get 'replies_count toot-to-count))))
+Used as a help-echo when point is at the start of a byline, i.e.
+where `mastodon-tl--goto-next-toot' leaves point. Also displays a
+toot's media types and optionally the binding to play moving
+image media from the byline."
+  (let* ((toot-to-count
+          (or
+           ;; simply praying this order works
+           (alist-get 'status toot) ; notifications timeline
+           (alist-get 'reblog toot) ; boosts
+           toot)) ; everything else
+         (media-types (mastodon-tl--get-media-types toot))
+         (format-faves (format "%s faves | %s boosts | %s replies"
+                               (alist-get 'favourites_count toot-to-count)
+                               (alist-get 'reblogs_count toot-to-count)
+                               (alist-get 'replies_count toot-to-count)))
+         (format-media (when media-types
+                         (format " | media: %s"
+                                 (mapconcat #'identity media-types " "))))
+         (format-media-binding (when (and (or
+                                           (member "video" media-types)
+                                           (member "gifv" media-types))
+                                          (require 'mpv nil :no-error))
+                                 (format " | C-RET to view with mpv"))))
+    (format "%s" (concat format-faves format-media format-media-binding))))
+
+(defun mastodon-tl--get-media-types (toot)
+  "Return a list of the media attachment types of the TOOT at point."
+  (let* ((attachments (mastodon-tl--field 'media_attachments toot)))
+    (mapcar (lambda (x)
+              (alist-get 'type x))
+            attachments)))
+
+(defun mastodon-tl--get-attachments-for-byline (toot)
+  "Return a list of attachment URLs and types for TOOT.
+The result is added as an attachments property to author-byline."
+  (let ((media-attachments (mastodon-tl--field 'media_attachments toot)))
+    (mapcar
+     (lambda (attachement)
+       (let ((remote-url
+              (or (alist-get 'remote_url attachement)
+                  ;; fallback b/c notifications don't have remote_url
+                  (alist-get 'url attachement)))
+             (type (alist-get 'type attachement)))
+         `(:url ,remote-url :type ,type)))
+     media-attachments)))
 
 (defun mastodon-tl--byline-boosted (toot)
   "Add byline for boosted data from TOOT."
@@ -410,9 +458,9 @@ TIME-STAMP is assumed to be in the past."
 (defun mastodon-tl--byline (toot author-byline action-byline)
   "Generate byline for TOOT.
 
-AUTHOR-BYLINE is function for adding the author portion of
+AUTHOR-BYLINE is a function for adding the author portion of
 the byline that takes one variable.
-ACTION-BYLINE is a function for adding an action, such as boosting
+ACTION-BYLINE is a function for adding an action, such as boosting,
 favouriting and following to the byline. It also takes a single function.
 By default it is `mastodon-tl--byline-boosted'"
   (let ((parsed-time (date-to-time (mastodon-tl--field 'created_at toot)))
@@ -420,20 +468,19 @@ By default it is `mastodon-tl--byline-boosted'"
         (boosted (equal 't (mastodon-tl--field 'reblogged toot)))
         (visibility (mastodon-tl--field 'visibility toot)))
     (concat
-     ;; (propertize "\n | " 'face 'default)
-     (propertize
+     ;; Boosted/favourited markers are not technically part of the byline, so
+     ;; we don't propertize them with 'byline t', as per the rest. This
+     ;; ensures that `mastodon-tl--goto-next-toot' puts point on
+     ;; author-byline, not before the (F) or (B) marker. Not propertizing like
+     ;; this makes the behaviour of these markers consistent whether they are
+     ;; displayed for an already boosted/favourited toot or as the result of
+     ;; the toot having just been favourited/boosted.
       (concat (when boosted
-                (format
-                 (propertize "(%s) "
-                             'help-echo
-                             (mastodon-tl--format-faves-count toot))
-                 (propertize "B" 'face 'mastodon-boost-fave-face)))
+                (mastodon-tl--format-faved-or-boosted-byline "B"))
               (when faved
-                (format
-                 (propertize "(%s) "
-                             'help-echo
-                             (mastodon-tl--format-faves-count toot))
-                 (propertize "F" 'face 'mastodon-boost-fave-face)))
+                (mastodon-tl--format-faved-or-boosted-byline "F")))
+      (propertize
+       (concat
               ;; we propertize help-echo format faves for author name
               ;; in `mastodon-tl--byline-author'
               (funcall author-byline toot)
@@ -459,6 +506,12 @@ By default it is `mastodon-tl--byline-boosted'"
       'favourited-p faved
       'boosted-p    boosted
       'byline       t))))
+
+(defun mastodon-tl--format-faved-or-boosted-byline (letter)
+  "Format the byline marker for a boosted or favorited status.
+LETTER is a string, either F or B."
+  (format "(%s) "
+          (propertize letter 'face 'mastodon-boost-fave-face)))
 
 (defun mastodon-tl--render-text (string toot)
   "Return a propertized text rendering the given HTML string STRING.
@@ -711,10 +764,9 @@ message is a link which unhides/hides the main body."
                           (let ((preview-url
                                  (alist-get 'preview_url media-attachement))
                                 (remote-url
-                                 (if (alist-get 'remote_url media-attachement)
-                                     (alist-get 'remote_url media-attachement)
-                                   ;; fallback b/c notifications don't have remote_url
-                                   (alist-get 'url media-attachement)))
+                                 (or (alist-get 'remote_url media-attachement)
+                                     ;; fallback b/c notifications don't have remote_url
+                                     (alist-get 'url media-attachement)))
                                 (type (alist-get 'type media-attachement)))
                             (if mastodon-tl--display-media-p
                                 (mastodon-media--get-media-link-rendering
@@ -844,6 +896,49 @@ a notification."
                              (lambda ()
                                (message "You voted for option %s: %s!"
                                         (car option) (cdr option)))))))
+
+(defun mastodon-tl--find-first-video-in-attachments ()
+  "Return the first media attachment that is a moving image."
+  (let ((attachments (mastodon-tl--property 'attachments))
+        vids)
+    (mapc (lambda (x)
+              (let ((att-type (plist-get x :type)))
+                (when (or (string= "video" att-type)
+                          (string= "gifv" att-type))
+                  (push x vids))))
+            attachments)
+    (car vids)))
+
+(defun mastodon-tl--mpv-play-video-from-byline ()
+  "Run `mastodon-tl--mpv-play-video-at-point' on first moving image in post."
+  (interactive)
+  (let* ((video (mastodon-tl--find-first-video-in-attachments))
+         (url (plist-get video :url))
+         (type (plist-get video :type)))
+    (mastodon-tl--mpv-play-video-at-point url type)))
+
+(defun mastodon-tl--mpv-play-video-at-point (&optional url type)
+  "Play the video or gif at point with an mpv process.
+URL and TYPE are provided when called while point is on byline,
+in which case play first video or gif from current toot."
+  (interactive)
+  (let ((url (or
+              ;; point in byline:
+              url
+              ;; point in toot:
+              (get-text-property (point) 'image-url)))
+        (type (or ;; in byline:
+               type
+               ;; point in toot:
+              (mastodon-tl--property 'mastodon-media-type))))
+    (if url
+        (if (or (equal type "gifv")
+                (equal type "video"))
+            (progn
+              (message "'q' to kill mpv.")
+              (mpv-start "--loop" url))
+          (message "no moving image here?"))
+      (message "no moving image here?"))))
 
 (defun mastodon-tl--toot (toot)
   "Formats TOOT and insertes it into the buffer."

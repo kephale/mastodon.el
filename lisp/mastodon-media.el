@@ -272,6 +272,20 @@ Replace them with the referenced image."
             (put-text-property start end 'media-state 'loading)
             (mastodon-media--load-image-from-url
              image-url media-type start (- end start))))))))
+            ;; (mastodon-media--moving-image-overlay start end)))))))
+
+;; (defun mastodon-media--moving-image-overlay (start end)
+;;   "Add play symbol overlay to moving image media items."
+;;   (let ((ov (make-overlay start end))
+;;         (type (get-text-property start 'mastodon-media-type)))
+;;     (when (or (equal type "gifv")
+;;               (equal type "video"))
+;;       (overlay-put
+;;        ov
+;;        'after-string
+;;        (propertize " "
+;;                    'face
+;;                    '((:height 1.5 :inherit 'font-lock-comment-face)))))))
 
 (defun mastodon-media--get-avatar-rendering (avatar-url)
   "Return the string to be written that renders the avatar at AVATAR-URL."
@@ -312,7 +326,7 @@ TYPE is the attachment's type field on the server."
                  'keymap mastodon-tl--shr-image-map-replacement
                  'help-echo (if (string= type "image")
                                 help-echo
-                              (concat help-echo "\ntype: " type)))
+                              (concat help-echo "\nC-RET: play " type " with mpv")))
                  " ")))
 
 (provide 'mastodon-media)
