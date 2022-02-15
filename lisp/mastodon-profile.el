@@ -57,6 +57,8 @@
 (autoload 'mastodon-tl--init "mastodon-tl.el")
 (autoload 'mastodon-http--patch "mastodon-http")
 (autoload 'mastodon-http--patch-json "mastodon-http")
+(autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
+(autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
 
 (defvar mastodon-instance-url)
 (defvar mastodon-tl--buffer-spec)
@@ -71,6 +73,17 @@
     (define-key map (kbd "g") #'mastodon-profile--open-following)
     map)
   "Keymap for `mastodon-profile-mode'.")
+
+(defvar mastodon-profile--view-follow-requests-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "r") #'mastodon-notifications--follow-request-reject)
+    (define-key map (kbd "a") #'mastodon-notifications--follow-request-accept)
+    ;; (define-key map (kbd "g") 'mastodon-notifications--view-follow-requests
+    ;; (define-key map (kbd "t") #'mastodon-toot)
+    (define-key map (kbd "q") #'kill-current-buffer)
+    (define-key map (kbd "Q") #'kill-buffer-and-window)
+    map)
+  "Keymap for viewing follow requests.")
 
 (define-minor-mode mastodon-profile-mode
   "Toggle mastodon profile minor mode.
@@ -148,7 +161,21 @@ extra keybindings."
   (interactive)
   (mastodon-tl--init "follow-requests"
                      "follow_requests"
-                     'mastodon-profile--add-author-bylines))
+                     'mastodon-profile--insert-follow-requests))
+
+(defun mastodon-profile--insert-follow-requests (json)
+  "Insert the user's current follow requests.
+JSON is the data returned by the server."
+  (insert (mastodon-tl--set-face
+           (concat "\n ------------\n"
+                   " FOLLOW REQUESTS\n"
+                   " ------------\n\n")
+           'success))
+  (if (equal json '[])
+      (insert (propertize
+               "Looks like you have no follow requests for now."
+               'face font-lock-comment-face))
+    (mastodon-profile--add-author-bylines json)))
 
 (defun mastodon-profile--update-user-profile-note ()
   "Fetch user's profile note and display for editing."
@@ -385,8 +412,7 @@ FIELD is used to identify regions under 'account"
 (defun mastodon-profile--add-author-bylines (tootv)
   "Convert TOOTV into a author-bylines and insert."
   (let ((inhibit-read-only t))
-    (if (equal tootv '[])
-        (message "Looks like you have no follow requests for the moment.")
+    (when (not (equal tootv '[]))
       (mapc (lambda (toot)
               (let ((start-pos (point)))
                 (insert "\n"

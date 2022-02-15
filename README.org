@@ -29,12 +29,13 @@ It adds the following features:
 | =D=               | delete and redraft toot at point, preserving reply/CW/visibility                   |
 | =W=, =M=, =B=         | (un)follow, (un)mute, (un)block author of toot at point                            |
 | =k=, =K=            | toggle bookmark of toot at point, view bookmarked toots                            |
+| =L=               | view, create, and delete filters                                                   |
 |                 | display polls and vote on them                                                     |
 |                 | images are links to the full image, can be zoomed/rotated/saved (see image keymap) |
 |                 | images scale properly                                                              |
 |                 | toot visibility (direct, followers only) icon appears in toot bylines              |
 |                 | display toot's number of favorites, boosts and replies                             |
-|                 | play gifs and videos (requires =mpv= to be installed)                              |
+|                 | play gifs and videos (requires =mpv= to be installed)                                |
 |                 | customize option to cache images                                                   |
 | Toots:          |                                                                                    |
 |                 | mention booster in replies by default                                              |

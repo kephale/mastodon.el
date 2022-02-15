@@ -98,7 +98,8 @@ Returns a nested list containing user handle, display name, and URL."
                          " USERS\n"
                          " ------------\n\n")
                  'success))
-        (mastodon-search--insert-users-propertized user-ids :note)
+        (mastodon-profile--add-author-bylines accts)
+        ;; (mastodon-search--insert-users-propertized user-ids :note)
         ;; hashtag results:
         (insert (mastodon-tl--set-face
                  (concat "\n ------------\n"
@@ -123,27 +124,6 @@ Returns a nested list containing user handle, display name, and URL."
                  'success))
         (mapc 'mastodon-tl--toot toots-list-json)
         (goto-char (point-min))))))
-
-(defun mastodon-search--insert-users-propertized (users &optional note)
-  "Insert USERS list into the buffer.
-If NOTE is non-nil, include user's profile note.
-This is also called by `mastodon-tl--get-follow-suggestions'."
-  (mapc (lambda (el)
-          (insert (propertize (car el) 'face 'mastodon-display-name-face)
-                  " : \n : "
-                  (propertize (concat "@" (car (cdr el)))
-                              'face 'mastodon-handle-face
-                              'mouse-face 'highlight
-		                      'mastodon-tab-stop 'user-handle
-		                      'keymap mastodon-tl--link-keymap
-                              'mastodon-handle (concat "@" (car (cdr el)))
-		                      'help-echo (concat "Browse user profile of @" (car (cdr el))))
-                  " : \n"
-                  (if note
-                      (mastodon-tl--render-text (cadddr el) nil)
-                  "")
-                  "\n"))
-        users))
 
 (defun mastodon-search--get-user-info (account)
   "Get user handle, display name, account URL and profile note from ACCOUNT."
