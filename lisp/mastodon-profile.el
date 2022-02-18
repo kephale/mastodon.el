@@ -55,14 +55,21 @@
 (autoload 'mastodon-tl--toot-id "mastodon-tl")
 (autoload 'mastodon-tl--toot "mastodon-tl")
 (autoload 'mastodon-tl--init "mastodon-tl.el")
+(autoload 'mastodon-tl--init-sync "mastodon-tl")
 (autoload 'mastodon-http--patch "mastodon-http")
 (autoload 'mastodon-http--patch-json "mastodon-http")
 (autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
 (autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
+(autoload 'mastodon-tl--goto-next-item "mastodon-tl")
+(autoload 'mastodon-tl--goto-prev-item "mastodon-tl")
+(autoload 'mastodon-tl--goto-first-item "mastodon-tl")
+(autoload 'mastodon-toot "mastodon")
+(autoload 'mastodon-search--insert-users-propertized "mastodon-search")
 
 (defvar mastodon-instance-url)
 (defvar mastodon-tl--buffer-spec)
 (defvar mastodon-tl--update-point)
+(defvar mastodon-mode-map)
 
 (defvar-local mastodon-profile--account nil
   "The data for the account being described in the current profile buffer.")
@@ -75,13 +82,16 @@
   "Keymap for `mastodon-profile-mode'.")
 
 (defvar mastodon-profile--view-follow-requests-keymap
-  (let ((map (make-sparse-keymap)))
+  (let ((map ;(make-sparse-keymap)))
+         (copy-keymap mastodon-mode-map)))
     (define-key map (kbd "r") #'mastodon-notifications--follow-request-reject)
     (define-key map (kbd "a") #'mastodon-notifications--follow-request-accept)
-    ;; (define-key map (kbd "g") 'mastodon-notifications--view-follow-requests
+    (define-key map (kbd "n") #'mastodon-tl--goto-next-item)
+    (define-key map (kbd "p") #'mastodon-tl--goto-prev-item)
+    (define-key map (kbd "g") 'mastodon-profile--view-follow-requests)
     ;; (define-key map (kbd "t") #'mastodon-toot)
-    (define-key map (kbd "q") #'kill-current-buffer)
-    (define-key map (kbd "Q") #'kill-buffer-and-window)
+    ;; (define-key map (kbd "q") #'kill-current-buffer)
+    ;; (define-key map (kbd "Q") #'kill-buffer-and-window)
     map)
   "Keymap for viewing follow requests.")
 
@@ -159,9 +169,11 @@ extra keybindings."
 (defun mastodon-profile--view-follow-requests ()
   "Open a new buffer displaying the user's follow requests."
   (interactive)
-  (mastodon-tl--init "follow-requests"
-                     "follow_requests"
-                     'mastodon-profile--insert-follow-requests))
+  (mastodon-tl--init-sync "follow-requests"
+                          "follow_requests"
+                          'mastodon-profile--insert-follow-requests)
+  (use-local-map mastodon-profile--view-follow-requests-keymap)
+  (mastodon-tl--goto-first-item))
 
 (defun mastodon-profile--insert-follow-requests (json)
   "Insert the user's current follow requests.
@@ -170,12 +182,18 @@ JSON is the data returned by the server."
            (concat "\n ------------\n"
                    " FOLLOW REQUESTS\n"
                    " ------------\n\n")
-           'success))
+           'success)
+          (mastodon-tl--set-face
+           "[a/r - accept/reject request at point\n n/p - go to next/prev request]\n\n"
+           'font-lock-comment-face))
   (if (equal json '[])
       (insert (propertize
                "Looks like you have no follow requests for now."
-               'face font-lock-comment-face))
-    (mastodon-profile--add-author-bylines json)))
+               'face font-lock-comment-face
+               'byline t
+               'toot-id "0"))
+    (mastodon-search--insert-users-propertized json :note)))
+    ;; (mastodon-profile--add-author-bylines json)))
 
 (defun mastodon-profile--update-user-profile-note ()
   "Fetch user's profile note and display for editing."
@@ -362,7 +380,6 @@ Returns a list of lists."
           (mastodon-profile--insert-statuses-pinned pinned)
           (setq mastodon-tl--update-point (point))) ;updates to follow pinned toots
         (funcall update-function json)))
-    ;;(mastodon-tl--goto-next-toot)
     (goto-char (point-min))))
 
 (defun mastodon-profile--get-toot-author ()
@@ -410,7 +427,10 @@ FIELD is used to identify regions under 'account"
   (cdr (assoc field account)))
 
 (defun mastodon-profile--add-author-bylines (tootv)
-  "Convert TOOTV into a author-bylines and insert."
+  "Convert TOOTV into a author-bylines and insert.
+Also insert their profile note.
+Used to view a user's followers and those they're following."
+  ;;FIXME change the name of this fun now that we've edited what it does!
   (let ((inhibit-read-only t))
     (when (not (equal tootv '[]))
       (mapc (lambda (toot)

@@ -168,6 +168,7 @@ Use. e.g. \"%c\" for your locale's date and time format."
     (define-key map (kbd "k") #'mastodon-toot--bookmark-toot-toggle)
     (define-key map (kbd "K") #'mastodon-profile--view-bookmarks)
     (define-key map (kbd "I") #'mastodon-tl--view-filters)
+    (define-key map (kbd "G") #'mastodon-tl--get-follow-suggestions)
     map)
 
   "Keymap for `mastodon-mode'.")
@@ -205,12 +206,17 @@ Use. e.g. \"%c\" for your locale's date and time format."
   (let* ((tls (list "home"
                     "local"
                     "federated"
-                    (concat (mastodon-auth--user-acct) "-statuses") ; profile
+                    (concat (mastodon-auth--user-acct) "-statuses") ; own profile
                     "favourites"
                     "search"))
-         (buffer (cl-some (lambda (el)
-                            (get-buffer (concat "*mastodon-" el "*")))
-                          tls))) ; return first buff that exists
+         (buffer (or (cl-some (lambda (el)
+                                (get-buffer (concat "*mastodon-" el "*")))
+                              tls) ; return first buff that exists
+                     (cl-some (lambda (x)
+                                (when
+                                    (string-prefix-p "*mastodon-" (buffer-name x))
+                                  (get-buffer x)))
+                              (buffer-list))))) ; catch any other masto buffer
     (if buffer
         (switch-to-buffer buffer)
       (mastodon-tl--get-home-timeline)

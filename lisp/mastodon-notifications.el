@@ -140,7 +140,8 @@ follow-requests view."
                         nil nil)))
                   (mastodon-http--triage response
                                          (lambda ()
-                                           (unless f-reqs-view-p
+                                           (if f-reqs-view-p
+                                               (mastodon-profile--view-follow-requests)
                                              (mastodon-notifications--get))
                                            (message "Follow request of %s (@%s) %s!"
                                                     name handle (if reject
