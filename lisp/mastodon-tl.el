@@ -377,7 +377,7 @@ Used on initializing a timeline or thread."
      ")")))
 
 (defun mastodon-tl--format-faves-count (toot)
-  "Format a favorites, boosts, replies count for a TOOT.
+  "Format a favourites, boosts, replies count for a TOOT.
 Used as a help-echo when point is at the start of a byline, i.e.
 where `mastodon-tl--goto-next-toot' leaves point. Also displays a
 toot's media types and optionally the binding to play moving
@@ -514,10 +514,19 @@ the byline that takes one variable.
 ACTION-BYLINE is a function for adding an action, such as boosting,
 favouriting and following to the byline. It also takes a single function.
 By default it is `mastodon-tl--byline-boosted'"
-  (let ((parsed-time (date-to-time (mastodon-tl--field 'created_at toot)))
-        (faved (equal 't (mastodon-tl--field 'favourited toot)))
-        (boosted (equal 't (mastodon-tl--field 'reblogged toot)))
-        (visibility (mastodon-tl--field 'visibility toot)))
+  (let* ((created-time
+          ;; bosts and faves in notifs view
+          ;; (makes timestamps be for the original toot
+          ;; not the boost/fave):
+          (or (mastodon-tl--field 'created_at
+                                  (mastodon-tl--field 'status toot))
+              ;; all other toots, inc. boosts/faves in timelines:
+              ;; (mastodon-tl--field auto fetches from reblogs if needed):
+              (mastodon-tl--field 'created_at toot)))
+         (parsed-time (date-to-time created-time))
+         (faved (equal 't (mastodon-tl--field 'favourited toot)))
+         (boosted (equal 't (mastodon-tl--field 'reblogged toot)))
+         (visibility (mastodon-tl--field 'visibility toot)))
     (concat
      ;; Boosted/favourited markers are not technically part of the byline, so
      ;; we don't propertize them with 'byline t', as per the rest. This
@@ -559,7 +568,7 @@ By default it is `mastodon-tl--byline-boosted'"
       'byline       t))))
 
 (defun mastodon-tl--format-faved-or-boosted-byline (letter)
-  "Format the byline marker for a boosted or favorited status.
+  "Format the byline marker for a boosted or favourited status.
 LETTER is a string, either F or B."
   (format "(%s) "
           (propertize letter 'face 'mastodon-boost-fave-face)))
@@ -818,10 +827,11 @@ message is a link which unhides/hides the main body."
                                  (or (alist-get 'remote_url media-attachement)
                                      ;; fallback b/c notifications don't have remote_url
                                      (alist-get 'url media-attachement)))
-                                (type (alist-get 'type media-attachement)))
+                                (type (alist-get 'type media-attachement))
+                                (caption (alist-get 'description media-attachement)))
                             (if mastodon-tl--display-media-p
                                 (mastodon-media--get-media-link-rendering
-                                 preview-url remote-url type) ; 2nd arg for shr-browse-url
+                                 preview-url remote-url type caption) ; 2nd arg for shr-browse-url
                               (concat "Media::" preview-url "\n"))))
                         media-attachements "")))
     (if (not (and mastodon-tl--display-media-p
@@ -1262,16 +1272,18 @@ Can be called to toggle NOTIFY on users already being followed."
     (interactive
      (list
       (mastodon-tl--interactive-user-handles-get "follow")))
-    (if (not (get-text-property (point) 'toot-json))
+    (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+             (not (get-text-property (point) 'toot-json)))
         (message "Looks like there's no toot or user at point?")
-    (mastodon-tl--do-user-action-and-response user-handle "follow" nil notify)))
+      (mastodon-tl--do-user-action-and-response user-handle "follow" nil notify)))
 
 (defun mastodon-tl--enable-notify-user-posts (user-handle)
   "Query for USER-HANDLE and enable notifications when they post."
   (interactive
    (list
     (mastodon-tl--interactive-user-handles-get "enable")))
-  (if (not (get-text-property (point) 'toot-json))
+  (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+           (not (get-text-property (point) 'toot-json)))
       (message "Looks like there's no toot or user at point?")
     (mastodon-tl--follow-user user-handle "true")))
 
@@ -1287,18 +1299,20 @@ Can be called to toggle NOTIFY on users already being followed."
   (interactive
    (list
     (mastodon-tl--interactive-user-handles-get "unfollow")))
-  (if (not (get-text-property (point) 'toot-json))
+  (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+           (not (get-text-property (point) 'toot-json)))
       (message "Looks like there's no toot or user at point?")
-  (mastodon-tl--do-user-action-and-response user-handle "unfollow" t)))
+    (mastodon-tl--do-user-action-and-response user-handle "unfollow" t)))
 
 (defun mastodon-tl--block-user (user-handle)
   "Query for USER-HANDLE from current status and block that user."
   (interactive
    (list
     (mastodon-tl--interactive-user-handles-get "block")))
-  (if (not (get-text-property (point) 'toot-json))
+  (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+           (not (get-text-property (point) 'toot-json)))
       (message "Looks like there's no toot or user at point?")
-  (mastodon-tl--do-user-action-and-response user-handle "block")))
+    (mastodon-tl--do-user-action-and-response user-handle "block")))
 
 (defun mastodon-tl--unblock-user (user-handle)
   "Query for USER-HANDLE from list of blocked users and unblock that user."
@@ -1314,9 +1328,10 @@ Can be called to toggle NOTIFY on users already being followed."
   (interactive
    (list
     (mastodon-tl--interactive-user-handles-get "mute")))
-  (if (not (get-text-property (point) 'toot-json))
+  (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+           (not (get-text-property (point) 'toot-json)))
       (message "Looks like there's no toot or user at point?")
-  (mastodon-tl--do-user-action-and-response user-handle "mute")))
+    (mastodon-tl--do-user-action-and-response user-handle "mute")))
 
 (defun mastodon-tl--unmute-user (user-handle)
   "Query for USER-HANDLE from list of muted users and unmute that user."
@@ -1329,7 +1344,8 @@ Can be called to toggle NOTIFY on users already being followed."
 
 (defun mastodon-tl--interactive-user-handles-get (action)
   "Get the list of user-handles for ACTION from the current toot."
-  (if (not (get-text-property (point) 'toot-json))
+  (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+           (not (get-text-property (point) 'toot-json)))
       (message "Looks like there's no toot or user at point?")
     (let ((user-handles
            (cond ((or (equal (buffer-name) "*mastodon-follow-suggestions*")

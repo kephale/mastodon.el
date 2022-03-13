@@ -307,12 +307,16 @@ Replace them with the referenced image."
                                  t image-options))
      " ")))
 
-(defun mastodon-media--get-media-link-rendering (media-url &optional full-remote-url type)
+(defun mastodon-media--get-media-link-rendering (media-url &optional full-remote-url type caption)
   "Return the string to be written that renders the image at MEDIA-URL.
 FULL-REMOTE-URL is used for `shr-browse-image'.
 TYPE is the attachment's type field on the server."
-  (let ((help-echo
-         "RET/i: load full image (prefix: copy URL), +/-: zoom, r: rotate, o: save preview"))
+  (let* ((help-echo-base "RET/i: load full image (prefix: copy URL), +/-: zoom, r: rotate, o: save preview")
+        (help-echo (if caption
+                       (concat help-echo-base
+                               "\n\""
+                               caption "\"")
+                     help-echo-base)))
     (concat
      (propertize "[img]"
                  'media-url media-url
@@ -324,7 +328,9 @@ TYPE is the attachment's type field on the server."
                  'mastodon-tab-stop 'image ; for do-link-action-at-point
                  'image-url full-remote-url ; for shr-browse-image
                  'keymap mastodon-tl--shr-image-map-replacement
-                 'help-echo (if (string= type "image")
+                 'help-echo (if (or (string= type "image")
+                                    (string= type nil)
+                                    (string= type "unknown")) ;handle borked images
                                 help-echo
                               (concat help-echo "\nC-RET: play " type " with mpv")))
                  " ")))

@@ -71,6 +71,11 @@
 (autoload 'mastodon-tl--toot-id "mastodon-tl")
 (autoload 'mastodon-toot "mastodon")
 
+; for mastodon-toot--translate-toot-text
+(autoload 'mastodon-tl--content "mastodon-tl")
+(when (require 'lingva nil :no-error)
+  (declare-function lingva-translate "lingva"))
+
 (defgroup mastodon-toot nil
   "Tooting in Mastodon."
   :prefix "mastodon-toot-"
@@ -260,7 +265,7 @@ Makes a POST request to the server."
                                    (mastodon-toot--action-success
                                     "F" byline-region remove))
                                  (message (format "%s #%s" action id))))
-      (message "Nothing to favorite here?!?"))))
+      (message "Nothing to favourite here?!?"))))
 
 (defun mastodon-toot--copy-toot-url ()
   "Copy URL of toot at point."
@@ -271,6 +276,25 @@ Makes a POST request to the server."
                 (alist-get 'url toot))))
     (kill-new url)
     (message "Toot URL copied to the clipboard.")))
+
+(defun mastodon-toot--copy-toot-text ()
+  "Copy text of toot at point."
+  (interactive)
+  (let* ((toot (mastodon-tl--property 'toot-json)))
+    (kill-new (mastodon-tl--content toot))
+    (message "Toot content copied to the clipboard.")))
+
+(when (require 'lingva nil :no-error)
+  (defun mastodon-toot--translate-toot-text ()
+    "Translate text of toot at point.
+Uses `lingva.el'."
+    (interactive)
+    (if mastodon-tl--buffer-spec
+        (let* ((toot (mastodon-tl--property 'toot-json)))
+          (if toot
+              (lingva-translate nil (mastodon-tl--content toot))
+            (message "No toot to translate?")))
+      (message "No mastodon buffer?"))))
 
 (defun mastodon-toot--own-toot-p (toot)
   "Check if TOOT is user's own, e.g. for deleting it."

@@ -400,19 +400,24 @@ If toot is a boost, opens the profile of the booster."
   "Query for USER-HANDLE from current status and show that user's profile."
   (interactive
    (list
-    (let ((user-handles (mastodon-profile--extract-users-handles
-                         (mastodon-profile--toot-json))))
-      (completing-read "View profile of user [choose or enter any handle]: "
-                       user-handles
-                       nil ; predicate
-                       'confirm))))
-  (let ((account (mastodon-profile--lookup-account-in-status
-                  user-handle (mastodon-profile--toot-json))))
-    (if account
-        (progn
-          (message "Loading profile of user %s..." user-handle)
-          (mastodon-profile--make-author-buffer account))
-      (message "Cannot find a user with handle %S" user-handle))))
+    (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+             (not (get-text-property (point) 'toot-json)))
+        (message "Looks like there's no toot or user at point?")
+      (let ((user-handles (mastodon-profile--extract-users-handles
+                           (mastodon-profile--toot-json))))
+        (completing-read "View profile of user [choose or enter any handle]: "
+                         user-handles
+                         nil ; predicate
+                         'confirm)))))
+  (if (not (get-text-property (point) 'toot-json))
+      (message "Looks like there's no toot or user at point?")
+    (let ((account (mastodon-profile--lookup-account-in-status
+                    user-handle (mastodon-profile--toot-json))))
+      (if account
+          (progn
+            (message "Loading profile of user %s..." user-handle)
+            (mastodon-profile--make-author-buffer account))
+        (message "Cannot find a user with handle %S" user-handle)))))
 
 (defun mastodon-profile--my-profile ()
   "Show the profile of the currently signed in user."
@@ -444,7 +449,9 @@ Used to view a user's followers and those they're following."
                          'toot-json toot))
                 (mastodon-media--inline-images start-pos (point))
                 (insert "\n"
-                        (mastodon-tl--render-text (alist-get 'note toot) nil)
+                        (propertize
+                         (mastodon-tl--render-text (alist-get 'note toot) nil)
+                         'toot-json toot)                         '
                         "\n")))
             tootv))))
 
@@ -474,9 +481,13 @@ If the handle does not match a search return then retun NIL."
 
 These include the author, author of reblogged entries and any user mentioned."
   (when status
-    (let ((this-account (alist-get 'account status))
-	      (mentions (alist-get 'mentions status))
-	      (reblog (alist-get 'reblog status)))
+    (let ((this-account
+           (or (alist-get 'account status) ; status is a toot
+                            status)) ; status is a user listing
+	      (mentions (or (alist-get 'mentions (alist-get 'status status))
+                        (alist-get 'mentions status)))
+	      (reblog (or (alist-get 'reblog (alist-get 'status status))
+                      (alist-get 'reblog status))))
       (seq-filter
        'stringp
        (seq-uniq
