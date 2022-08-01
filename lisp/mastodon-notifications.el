@@ -3,7 +3,7 @@
 ;; Copyright (C) 2017-2019 Johnson Denen
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (persist "0.4"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -245,9 +245,12 @@ Status notifications are given when
                "Posted")
               ((equal type 'poll)
                "Posted a poll"))))
-     id)))
+     id
+     (when (or (equal type 'favourite)
+               (equal type 'boost))
+       status))))
 
-(defun mastodon-notifications--insert-status (toot body author-byline action-byline id)
+(defun mastodon-notifications--insert-status (toot body author-byline action-byline id &optional parent-toot)
   "Display the content and byline of timeline element TOOT.
 
 BODY will form the section of the toot above the byline.
@@ -261,9 +264,11 @@ such as boosting favouriting and following to the byline. It also
 takes a single function. By default it is
 `mastodon-tl--byline-boosted'.
 
-ID is the notification's own id, which is attached as a property."
+ID is the notification's own id, which is attached as a property.
+If the status is a favourite or a boost, PARENT-TOOT is the JSON
+of the toot responded to."
   (when toot ; handle rare blank notif server bug
-    (mastodon-tl--insert-status toot body author-byline action-byline id)))
+    (mastodon-tl--insert-status toot body author-byline action-byline id parent-toot)))
 
 (defun mastodon-notifications--by-type (note)
   "Filters NOTE for those listed in `mastodon-notifications--types-alist'."

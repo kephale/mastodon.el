@@ -1,9 +1,10 @@
 ;;; mastodon.el --- Client for Mastodon  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2017-2019 Johnson Denen
+;; Copyright (C) 2021 Abhiseck Paira <abhiseckpaira@disroot.org>
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (request "0.3.2") (seq "1.0"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -27,8 +28,8 @@
 ;;; Commentary:
 
 ;; mastodon.el is an Emacs client for Mastodon <https://github.com/tootsuite/mastodon>,
-;; the federated microblogging social network. It is very much a work-in-progress, but
-;; it is a labor of love.
+;; the federated microblogging social network. It also works with Pleroma instances.
+;; see the readme file at https://codeberg.org/martianh/mastodon.el for set up and usage details.
 
 ;;; Code:
 (require 'cl-lib) ; for `cl-some' call in mastodon
@@ -90,13 +91,43 @@
 (defvar mastodon-notifications-display-modeline-count)
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
 
+(when (require 'lingva nil :no-error)
+  (autoload 'mastodon-toot--translate-toot-text "mastodon-toot"))
+
 (defgroup mastodon nil
   "Interface with Mastodon."
   :prefix "mastodon-"
   :group 'external)
 
 (defcustom mastodon-instance-url "https://mastodon.social"
-  "Base URL for the Masto instance from which you toot."
+  "Base URL for the Mastodon instance you want to be active.
+
+For example, if your mastodon username is
+\"example_user@social.instance.org\", and you want this account
+to be active, the value of this variable should be
+\"https://social.instance.org\".
+
+Also for completeness, the value of `mastodon-active-user' should
+be \"example_user\".
+
+After setting these variables you should restart Emacs for these
+changes to take effect."
+  :group 'mastodon
+  :type 'string)
+
+(defcustom mastodon-active-user nil
+  "Username of the active user.
+
+For example, if your mastodon username is
+\"example_user@social.instance.org\", and you want this account
+to be active, the value of this variable should be
+\"example_user\".
+
+Also for completeness, the value of `mastodon-instance-url'
+should be \"https://social.instance.org\".
+
+After setting these variables you should restart Emacs for these
+changes to take effect."
   :group 'mastodon
   :type 'string)
 
@@ -169,6 +200,8 @@ Use. e.g. \"%c\" for your locale's date and time format."
     (define-key map (kbd "K") #'mastodon-profile--view-bookmarks)
     (define-key map (kbd "I") #'mastodon-tl--view-filters)
     (define-key map (kbd "G") #'mastodon-tl--get-follow-suggestions)
+    (when (require 'lingva nil :no-error)
+      (define-key map (kbd "s") #'mastodon-toot--translate-toot-text))
     map)
 
   "Keymap for `mastodon-mode'.")

@@ -4,7 +4,7 @@
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;;         Marty Hiatt <martianhiatus@riseup.net>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -48,6 +48,7 @@
 
 (defvar mastodon-instance-url)
 (defvar mastodon-tl--buffer-spec)
+(defvar mastodon-tl--enable-proportional-fonts)
 (autoload 'mastodon-auth--user-acct "mastodon-auth")
 (autoload 'mastodon-http--api "mastodon-http")
 (autoload 'mastodon-http--delete "mastodon-http")
@@ -71,7 +72,7 @@
 (autoload 'mastodon-tl--toot-id "mastodon-tl")
 (autoload 'mastodon-toot "mastodon")
 
-; for mastodon-toot--translate-toot-text
+;; for mastodon-toot--translate-toot-text
 (autoload 'mastodon-tl--content "mastodon-tl")
 (when (require 'lingva nil :no-error)
   (declare-function lingva-translate "lingva"))
@@ -177,9 +178,9 @@ Valid values are \"direct\", \"private\" (followers-only),
                      (alist-get 'statuses
                                 (alist-get 'configuration
                                            json-response))))))
-  (setq mastodon-toot--max-toot-chars max-chars)
-  (with-current-buffer "*new toot*"
-    (mastodon-toot--update-status-fields))))
+    (setq mastodon-toot--max-toot-chars max-chars)
+    (with-current-buffer "*new toot*"
+      (mastodon-toot--update-status-fields))))
 
 (defun mastodon-toot--action-success (marker byline-region remove)
   "Insert/remove the text MARKER with 'success face in byline.
@@ -203,7 +204,7 @@ Remove MARKER if REMOVE is non-nil, otherwise add it."
                         (propertize marker 'face 'success)))))
     ;; leave point after the marker:
     (unless remove
-        (mastodon-tl--goto-next-toot))))
+      (mastodon-tl--goto-next-toot))))
 
 (defun mastodon-toot--action (action callback)
   "Take ACTION on toot at point, then execute CALLBACK.
@@ -216,56 +217,61 @@ Makes a POST request to the server."
     (let ((response (mastodon-http--post url nil nil)))
       (mastodon-http--triage response callback))))
 
-(defun mastodon-toot--toggle-boost ()
-  "Boost/unboost toot at `point'."
+
+
+(defun mastodon-toot--toggle-boost-or-favourite (type)
+  "Toggle boost or favourite of toot at `point'.
+TYPE is a symbol, either 'favourite or 'boost."
   (interactive)
-  (let* ((has-id (mastodon-tl--property 'base-toot-id))
+  (let* ((boost-p (equal type 'boost))
+         (has-id (mastodon-tl--property 'base-toot-id))
          (byline-region (when has-id
                           (mastodon-tl--find-property-range 'byline (point))))
          (id (when byline-region
                (mastodon-tl--as-string (mastodon-tl--property 'base-toot-id))))
          (boosted (when byline-region
                     (get-text-property (car byline-region) 'boosted-p)))
-         (action (if boosted "unreblog" "reblog"))
+         (faved (when byline-region
+                  (get-text-property (car byline-region) 'favourited-p)))
+         (action (if boost-p
+                     (if boosted "unreblog" "reblog")
+                   (if faved "unfavourite" "favourite")))
          (msg (if boosted "unboosted" "boosted"))
-         (remove (when boosted t)))
+         (action-string (if boost-p "boost" "favourite"))
+         (remove (if boost-p (when boosted t) (when faved t)))
+         (toot-type (alist-get 'type (mastodon-tl--property 'toot-json))))
     (if byline-region
-        (mastodon-toot--action action
-                               (lambda ()
-                                 (let ((inhibit-read-only t))
-                                   (add-text-properties (car byline-region)
-                                                        (cdr byline-region)
-                                                        (list 'boosted-p
-                                                              (not boosted)))
-                                   (mastodon-toot--action-success
-                                    "B" byline-region remove))
-                                 (message (format "%s #%s" msg id))))
-      (message "Nothing to boost here?!?"))))
+        (cond ((mastodon-toot--own-toot-p (mastodon-tl--property 'toot-json))
+               (error "You can't %s your own toots." action-string))
+              ((equal "reblog" toot-type)
+               (error "You can't %s boosts." action-string))
+              ((equal "favourite" toot-type)
+               (error "Your can't %s favourites." action-string))
+              (t
+               (mastodon-toot--action
+                action
+                (lambda ()
+                  (let ((inhibit-read-only t))
+                    (add-text-properties (car byline-region)
+                                         (cdr byline-region)
+                                         (if boost-p
+                                             (list 'boosted-p (not boosted))
+                                           (list 'favourited-p (not faved))))
+                    (mastodon-toot--action-success
+                     (if boost-p "B" "F")
+                     byline-region remove))
+                  (message (format "%s #%s" (if boost-p msg action) id))))))
+      (message (format "Nothing to %s here?!?" action-string)))))
+
+(defun mastodon-toot--toggle-boost ()
+  "Boost/unboost toot at `point'."
+  (interactive)
+  (mastodon-toot--toggle-boost-or-favourite 'boost))
 
 (defun mastodon-toot--toggle-favourite ()
   "Favourite/unfavourite toot at `point'."
   (interactive)
-  (let* ((has-id (mastodon-tl--property 'base-toot-id))
-         (byline-region (when has-id
-                          (mastodon-tl--find-property-range 'byline (point))))
-         (id (when byline-region
-               (mastodon-tl--as-string (mastodon-tl--property 'base-toot-id))))
-         (faved (when byline-region
-                  (get-text-property (car byline-region) 'favourited-p)))
-         (action (if faved "unfavourite" "favourite"))
-         (remove (when faved t)))
-    (if byline-region
-        (mastodon-toot--action action
-                               (lambda ()
-                                 (let ((inhibit-read-only t))
-                                   (add-text-properties (car byline-region)
-                                                        (cdr byline-region)
-                                                        (list 'favourited-p
-                                                              (not faved)))
-                                   (mastodon-toot--action-success
-                                    "F" byline-region remove))
-                                 (message (format "%s #%s" action id))))
-      (message "Nothing to favourite here?!?"))))
+  (mastodon-toot--toggle-boost-or-favourite 'favourite))
 
 (defun mastodon-toot--copy-toot-url ()
   "Copy URL of toot at point."
@@ -284,15 +290,20 @@ Makes a POST request to the server."
     (kill-new (mastodon-tl--content toot))
     (message "Toot content copied to the clipboard.")))
 
-(when (require 'lingva nil :no-error)
-  (defun mastodon-toot--translate-toot-text ()
-    "Translate text of toot at point.
+;; (when (require 'lingva nil :no-error)
+(defun mastodon-toot--translate-toot-text ()
+  "Translate text of toot at point.
 Uses `lingva.el'."
-    (interactive)
+  (interactive)
+  (if (not (require 'lingva nil :no-error))
+      (message "Looks like you need to install lingva.el first.")
     (if mastodon-tl--buffer-spec
-        (let* ((toot (mastodon-tl--property 'toot-json)))
+        (let ((toot (mastodon-tl--property 'toot-json)))
           (if toot
-              (lingva-translate nil (mastodon-tl--content toot))
+              (lingva-translate nil
+                                (mastodon-tl--content toot)
+                                (when mastodon-tl--enable-proportional-fonts
+                                  t))
             (message "No toot to translate?")))
       (message "No mastodon buffer?"))))
 
@@ -348,7 +359,7 @@ NO-REDRAFT means delete toot only."
                (if no-redraft
                    (progn
                      (when mastodon-tl--buffer-spec
-                            (mastodon-tl--reload-timeline-or-profile))
+                       (mastodon-tl--reload-timeline-or-profile))
                      (message "Toot deleted!"))
                  (mastodon-toot--redraft response
                                          reply-id
@@ -517,9 +528,9 @@ If media items have been attached and uploaded with
                                             (symbol-name t)))
                           ("spoiler_text" . ,spoiler)))
          (args-media (when mastodon-toot--media-attachments
-                           (mapcar (lambda (id)
-                                     (cons "media_ids[]" id))
-                                   mastodon-toot--media-attachment-ids)))
+                       (mapcar (lambda (id)
+                                 (cons "media_ids[]" id))
+                               mastodon-toot--media-attachment-ids)))
          (args (append args-media args-no-media)))
     (cond ((and mastodon-toot--media-attachments
                 ;; make sure we have media args
@@ -618,11 +629,13 @@ candidate ARG. IGNORED remains a mystery."
   "Reply to toot at `point'."
   (interactive)
   (let* ((toot (mastodon-tl--property 'toot-json))
-         (id (mastodon-tl--as-string (mastodon-tl--field 'id toot)))
+         (parent (mastodon-tl--property 'parent-toot)) ; for new notifs handling
+         (id (mastodon-tl--as-string
+              (mastodon-tl--field 'id (or parent toot))))
          (account (mastodon-tl--field 'account toot))
          (user (alist-get 'acct account))
-         (mentions (mastodon-toot--mentions toot))
-         (boosted (mastodon-tl--field 'reblog toot))
+         (mentions (mastodon-toot--mentions (or parent toot)))
+         (boosted (mastodon-tl--field 'reblog (or parent toot)))
          (booster (when boosted
                     (alist-get 'acct
                                (alist-get 'account toot)))))
@@ -631,14 +644,27 @@ candidate ARG. IGNORED remains a mystery."
                          (if (and
                               (not (equal user booster))
                               (not (string-match booster mentions)))
+                             ;; different booster, user and mentions:
                              (concat (mastodon-toot--process-local user)
                                      ;; "@" booster " "
-                                     (mastodon-toot--process-local booster) mentions)
+                                     (mastodon-toot--process-local booster)
+                                     mentions)
+                           ;; booster is either user or in mentions:
+                           (if (not (string-match user mentions))
+                               ;; user not already in mentions:
+                               (concat (mastodon-toot--process-local user)
+                                       mentions)
+                             ;; user already in mentions:
+                             mentions))
+                       ;; ELSE no booster:
+                       (if (not (string-match user mentions))
+                           ;; user not in mentions:
                            (concat (mastodon-toot--process-local user)
-                                   mentions))
-                       (concat (mastodon-toot--process-local user)
-                               mentions)))
-                   id toot)))
+                                   mentions)
+                         ;; user in mentions already:
+                         mentions)))
+                   id
+                   (or parent toot))))
 
 (defun mastodon-toot--toggle-warning ()
   "Toggle `mastodon-toot--content-warning'."

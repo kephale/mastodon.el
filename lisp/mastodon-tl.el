@@ -4,7 +4,7 @@
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;;         Marty Hiatt <martianhiatus@riseup.net>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -386,8 +386,14 @@ image media from the byline."
           (or
            ;; simply praying this order works
            (alist-get 'status toot) ; notifications timeline
+           ;; fol-req notif, has 'type
+           ;; placed before boosts coz fol-reqs have a (useless) reblog entry:
+           ;; TODO: cd also test for notifs buffer before we do this to be sure
+           (when (alist-get 'type toot)
+             toot)
            (alist-get 'reblog toot) ; boosts
            toot)) ; everything else
+         (fol-req-p (equal (alist-get 'type toot-to-count) "follow"))
          (media-types (mastodon-tl--get-media-types toot))
          (format-faves (format "%s faves | %s boosts | %s replies"
                                (alist-get 'favourites_count toot-to-count)
@@ -401,7 +407,8 @@ image media from the byline."
                                            (member "gifv" media-types))
                                           (require 'mpv nil :no-error))
                                  (format " | C-RET to view with mpv"))))
-    (format "%s" (concat format-faves format-media format-media-binding))))
+    (unless fol-req-p
+      (format "%s" (concat format-faves format-media format-media-binding)))))
 
 (defun mastodon-tl--get-media-types (toot)
   "Return a list of the media attachment types of the TOOT at point."
@@ -853,7 +860,7 @@ Runs `mastodon-tl--render-text' and fetches poll or media."
        (mastodon-tl--get-poll toot))
      (mastodon-tl--media toot))))
 
-(defun mastodon-tl--insert-status (toot body author-byline action-byline &optional id)
+(defun mastodon-tl--insert-status (toot body author-byline action-byline &optional id parent-toot)
   "Display the content and byline of timeline element TOOT.
 
 BODY will form the section of the toot above the byline.
@@ -866,7 +873,8 @@ takes a single function. By default it is
 `mastodon-tl--byline-boosted'.
 
 ID is that of the toot, which is attached as a property if it is
-a notification."
+a notification. If the status is a favourite or a boost,
+PARENT-TOOT is the JSON of the toot responded to."
   (let ((start-pos (point)))
     (insert
      (propertize
@@ -877,7 +885,8 @@ a notification."
       'toot-id      (or id ; for notifications
                         (alist-get 'id toot))
       'base-toot-id (mastodon-tl--toot-id toot)
-      'toot-json    toot)
+      'toot-json    toot
+      'parent-toot parent-toot)
      "\n")
     (when mastodon-tl--display-media-p
       (mastodon-media--inline-images start-pos (point)))))
@@ -1035,10 +1044,9 @@ Optionally get it for BUFFER."
 (defun mastodon-tl--get-buffer-property (property &optional buffer)
   "Get PROPERTY from `mastodon-tl--buffer-spec' in BUFFER or `current-buffer'."
   (with-current-buffer  (or buffer (current-buffer))
-    (if (plist-get mastodon-tl--buffer-spec property)
-        (plist-get mastodon-tl--buffer-spec property)
-      (error "Mastodon-tl--buffer-spec is not defined for buffer %s"
-             (or buffer (current-buffer))))))
+    (or (plist-get mastodon-tl--buffer-spec property)
+        (error "Mastodon-tl--buffer-spec is not defined for buffer %s"
+               (or buffer (current-buffer))))))
 
 (defun mastodon-tl--more-json (endpoint id)
   "Return JSON for timeline ENDPOINT before ID."
@@ -1122,11 +1130,19 @@ webapp"
 (defun mastodon-tl--thread ()
   "Open thread buffer for toot under `point'."
   (interactive)
-  (let* ((id (mastodon-tl--as-string (mastodon-tl--toot-id
-                                      (mastodon-tl--property 'toot-json))))
+  (let* ((id
+          (if (equal (mastodon-tl--get-endpoint) "notifications")
+              (if (mastodon-tl--property 'parent-toot)
+                  (mastodon-tl--as-string (mastodon-tl--toot-id
+                                           (mastodon-tl--property 'parent-toot)))
+                (mastodon-tl--property 'base-toot-id))
+            (mastodon-tl--property 'base-toot-id)))
          (url (mastodon-http--api (format "statuses/%s/context" id)))
          (buffer (format "*mastodon-thread-%s*" id))
-         (toot (mastodon-tl--property 'toot-json))
+         (toot
+          ;; refetch current toot in case we just faved/boosted:
+          (mastodon-http--get-json
+           (mastodon-http--api (concat "statuses/" id))))
          (context (mastodon-http--get-json url)))
     (when (member (alist-get 'type toot) '("reblog" "favourite"))
       (setq toot (alist-get 'status toot)))
@@ -1453,6 +1469,7 @@ For use after e.g. deleting a toot."
 (defun mastodon-tl--more ()
   "Append older toots to timeline, asynchronously."
   (interactive)
+  (message "Loading older toots...")
   (mastodon-tl--more-json-async (mastodon-tl--get-endpoint) (mastodon-tl--oldest-id)
                                 'mastodon-tl--more* (current-buffer) (point)))
 
@@ -1465,7 +1482,8 @@ When done, places point at POINT-BEFORE."
       (let ((inhibit-read-only t))
         (goto-char (point-max))
         (funcall (mastodon-tl--get-update-function) json)
-        (goto-char point-before)))))
+        (goto-char point-before)
+        (message "Loading older toots... done.")))))
 
 (defun mastodon-tl--find-property-range (property start-point &optional search-backwards)
   "Return `nil` if no such range is found.

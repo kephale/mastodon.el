@@ -3,7 +3,7 @@
 ;; Copyright (C) 2017-2019 Johnson Denen
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -310,7 +310,8 @@ Replace them with the referenced image."
 (defun mastodon-media--get-media-link-rendering (media-url &optional full-remote-url type caption)
   "Return the string to be written that renders the image at MEDIA-URL.
 FULL-REMOTE-URL is used for `shr-browse-image'.
-TYPE is the attachment's type field on the server."
+TYPE is the attachment's type field on the server.
+CAPTION is the image caption if provided."
   (let* ((help-echo-base "RET/i: load full image (prefix: copy URL), +/-: zoom, r: rotate, o: save preview")
         (help-echo (if caption
                        (concat help-echo-base

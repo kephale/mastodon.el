@@ -1,3 +1,4 @@
+(load-file "lisp/mastodon.el")
 (load-file "lisp/mastodon-search.el")
 (load-file "lisp/mastodon-async.el")
 (load-file "lisp/mastodon-http.el")

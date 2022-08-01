@@ -1,8 +1,12 @@
 #+OPTIONS: toc:nil
 
-* mastodon.el fork
+* mastodon.el updated
 
-This is a fork of of the great but seemingly dormant https://github.com/jdenen/mastodon.el.
+This is an updated version of the great but seemingly dormant mastodon client for emacs.
+
+This is now the version available via MELPA.
+
+[The original readme is below.]
 
 It adds the following features:
 
@@ -13,7 +17,7 @@ It adds the following features:
 |                | display toots/follows/followers counts                                             |
 |                | links/tags/mentions in profile bios are active links                               |
 |                | show a lock icon for locked accounts                                               |
-| =G=            | view follow suggestions                                                            |
+| =G=              | view follow suggestions                                                            |
 | =R=, =a=, =r=        | view/accept/reject follow requests                                                 |
 | =V=              | view your favorited toots                                                          |
 | =i=              | toggle pinning of toots                                                            |
@@ -21,7 +25,7 @@ It adds the following features:
 | =O=              | jump to own profile                                                                |
 | Notifications: |                                                                                    |
 |                | follow requests now also appear in notifications                                   |
-| =a=, =j=         | accept/reject follow request                                                       |
+| =a=, =j=           | accept/reject follow request                                                       |
 |                | notifications for when a user posts (=mastodon-tl--enable-notify-user-posts=)        |
 | Timelines:     |                                                                                    |
 | =C=              | copy url of toot at point                                                          |
@@ -29,7 +33,8 @@ It adds the following features:
 | =D=              | delete and redraft toot at point, preserving reply/CW/visibility                   |
 | =W=, =M=, =B=        | (un)follow, (un)mute, (un)block author of toot at point                            |
 | =k=, =K=           | toggle bookmark of toot at point, view bookmarked toots                            |
-| =I=, =c=, =d=      | view, create, and delete filters                                                   |
+| =I=, =c=, =d=        | view, create, and delete filters                                                   |
+|                | display image captions                                                             |
 |                | display polls and vote on them                                                     |
 |                | images are links to the full image, can be zoomed/rotated/saved (see image keymap) |
 |                | images scale properly                                                              |
@@ -53,23 +58,42 @@ It adds the following features:
 
 It also makes some small cosmetic changes to make timelines easier to read, and makes some functions asynchronous, based on https://github.com/ieure/mastodon.el.
 
-This updated version is not on MELPA, to use it you need to clone and require it as per the installation instructions below.
-
-The minimum Emacs version is now 26.1. But if you are running an older version it shouldn't be very hard to get it working.
-
-I did this for my own use and to learn more Elisp. Feel free to improve it.
+The minimum Emacs version is now 27.1. But if you are running an older version it shouldn't be very hard to get it working.
 
 ** live-updating timelines: =mastodon-async-mode=
 
 (code taken from https://github.com/alexjgriffith/mastodon-future.el.)
 
-Works for federated, local, and home timelines and for notifications. It's pretty necro, sometimes it goes off the rails, so use at your own risk. Not a super high priority for me, but some people dig it. 
+Works for federated, local, and home timelines and for notifications. It's a little touchy, one thing to avoid is trying to load a timeline more than once at a time. It can go off the rails a bit, but it's still pretty cool.
 
 To enable, it, add =(require 'mastodon-async)= to your =init.el=. Then you can view a timeline with one of the commands that begin with =mastodon-async--stream-=.
 
-** NB: dependency
+** translating toots
 
-This version depends on the library =request= (for uploading attachments). You can install it from MELPA, or https://github.com/tkf/emacs-request.
+You can translate toots with =mastodon-toot--translate-toot-text=. At the moment this requires [[https://codeberg.org/martianh/lingva.el][lingva.el]], a little interface I wrote to https://lingva.ml, to be installed to work.
+
+You could easily modify the simple function to use your emacs translator of choice (=google-translate=, =babel=, =go-translate=, etc.), you just need to fetch the toot's content with =(mastodon-tl--content toot)= and pass it to your translator function as its text argument. Here's what =mastodon-toot--translate-toot-text= looks like:
+
+#+begin_src emacs-lisp
+  (defun mastodon-toot--translate-toot-text ()
+    "Translate text of toot at point.
+    Uses `lingva.el'."
+      (interactive)
+      (let* ((toot (mastodon-tl--property 'toot-json)))
+        (if toot
+            (lingva-translate nil (mastodon-tl--content toot))
+          (message "No toot to translate?"))))
+#+end_src
+
+** NB: dependencies
+
+This version depends on the library =request= (for uploading attachments). You can install it from MELPA, or https://github.com/tkf/emacs-request. It also depends on =seq=.
+
+Optional dependencies:
+- =company= for autocompletion of mentions when composing a toot
+- =emojify= for inserting and viewing emojis
+- =mpv= and =mpv.el= for viewing videos and gifs
+- =lingva.el= for translating toots
 
 ** NB: bugs
 
@@ -77,15 +101,13 @@ This repo also incorporates fixes for two bugs that were never merged into the u
 - https://github.com/jdenen/mastodon.el/issues/227 (and https://github.com/jdenen/mastodon.el/issues/234)
 - https://github.com/jdenen/mastodon.el/issues/228
 
-** 2FA
-
-It looks like 2-factor auth was never completed in the original repo. It's not a priority for me, auth ain't my thing. If you want to hack on it, its on the develop branch in the original repo.
-
 ** contributing
 
-Contributions are welcome. Registration is disabled by default on the gitea instance, but if you are interested, get in touch with me on mastodon:
+Contributions are welcome.
 
-[[https://todon.nl/@mousebot][@mousebot@todon.nl]]
+1. Create an here on codeberg detailing the feature you'd like to add.
+2. Fork the repository and create a branch off of =develop=.
+3. Create a pull request referencing the issue created in step 1.
 
 * Original README
 
@@ -149,21 +171,31 @@ Or, with =use-package=:
 #+END_SRC
 
 ** Usage
-*** 2 Factor Auth
-2FA is not supported yet. It is in the [[https://github.com/jdenen/mastodon.el/milestone/2][plans]] for the =1.0.0= release.
-
-If you have 2FA enabled and try to use mastodon.el, your Emacs client will hang until you `C-g` your way out.
 *** Instance
 
-Set =mastodon-instance-url= in your =.emacs= or =customize=. Defaults to the [[https://mastodon.social][flagship]].
+You need to set 2 variables in your init file to get started:
+
+1. mastodon-instance-url
+2. mastodon-active-user
+
+(see their doc strings for details). For example If you want to post
+toots as "example_user@social.instance.org", then put this in your init
+file:
 
 #+BEGIN_SRC emacs-lisp
-    (setq mastodon-instance-url "https://my.instance.url")
+    (setq mastodon-instance-url "https://social.instance.org"
+          mastodon-active-user "example_user")
 #+END_SRC
 
-There is an option to have your user credentials (email address and password) saved to disk so you don't have to re-enter them on every restart.
-The default is not to do this because if not properly configured it would save these unencrypted which is not a good default to have.
-Customize the variable =mastodon-auth-source-file= if you want to enable this feature.
+Then *restart* Emacs and run =M-x mastodon=. Make sure you are connected
+to internet before you do this. If you have multiple mastodon accounts
+you can activate one at a time by changing those two variables and
+restarting Emacs.
+
+If you have been using mastodon.el before this change and the above
+steps do not work it's advisable that you delete the old file specified
+by =mastodon-client--token-file= and restart Emacs and follow the steps
+again.
 
 *** Timelines
 

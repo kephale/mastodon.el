@@ -1,9 +1,10 @@
 ;;; mastodon-client.el --- Client functions for mastodon.el  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2017-2019 Johnson Denen
+;; Copyright (C) 2021 Abhiseck Paira <abhiseckpaira@disroot.org>
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -32,8 +33,10 @@
 
 (require 'plstore)
 (require 'json)
+(require 'url)
 
 (defvar mastodon-instance-url)
+(defvar mastodon-active-user)
 (autoload 'mastodon-http--api "mastodon-http")
 (autoload 'mastodon-http--post "mastodon-http")
 
@@ -46,14 +49,26 @@
 (defvar mastodon-client--client-details-alist nil
   "An alist of Client id and secrets keyed by the instance url.")
 
+(defvar mastodon-client--active-user-details-plist nil
+  "A plist of active user details.")
+
+(defvar mastodon-client-scopes "read write follow"
+  "Scopes to pass to oauth during registration.")
+
+(defvar mastodon-client-website "https://codeberg.org/martianh/mastodon.el"
+  "Website of mastodon.el.")
+
+(defvar mastodon-client-redirect-uri "urn:ietf:wg:oauth:2.0:oob"
+  "Redirect_uri as required by oauth.")
+
 (defun mastodon-client--register ()
   "POST client to Mastodon."
   (mastodon-http--post
    (mastodon-http--api "apps")
-   '(("client_name" . "mastodon.el")
-     ("redirect_uris" . "urn:ietf:wg:oauth:2.0:oob")
-     ("scopes" . "read write follow")
-     ("website" . "https://github.com/jdenen/mastodon.el"))
+   `(("client_name" . "mastodon.el")
+     ("redirect_uris" . ,mastodon-client-redirect-uri)
+     ("scopes" . ,mastodon-client-scopes)
+     ("website" . ,mastodon-client-website))
    nil
    :unauthenticated))
 
@@ -88,11 +103,96 @@ Make `mastodon-client--fetch' call to determine client values."
     (plstore-close plstore)
     client))
 
+(defun mastodon-client--remove-key-from-plstore (plstore)
+  "Remove KEY from PLSTORE."
+  (cdr plstore))
+
+;; Actually it returns a plist with client-details if such details are
+;; already stored in mastodon.plstore
 (defun mastodon-client--read ()
   "Retrieve client_id and client_secret from `mastodon-client--token-file'."
   (let* ((plstore (plstore-open (mastodon-client--token-file)))
          (mastodon (plstore-get plstore (concat "mastodon-" mastodon-instance-url))))
-    (cdr mastodon)))
+    (mastodon-client--remove-key-from-plstore mastodon)))
+
+(defun mastodon-client--general-read (key)
+  "Retrieve the plstore item keyed by KEY.
+Return plist without the KEY."
+  (let* ((plstore (plstore-open (mastodon-client--token-file)))
+         (plstore-item (plstore-get plstore key)))
+    (mastodon-client--remove-key-from-plstore plstore-item)))
+
+(defun mastodon-client--make-user-details-plist ()
+  "Make a plist with current user details.  Return it."
+  `(:username ,(mastodon-client--form-user-from-vars)
+              :instance ,mastodon-instance-url
+              :client_id ,(plist-get (mastodon-client) :client_id)
+              :client_secret ,(plist-get (mastodon-client) :client_secret)))
+
+(defun mastodon-client--store-access-token (token)
+  "Save TOKEN as :access_token in plstore of the current user.
+Return the plist after the operation."
+  (let* ((user-details (mastodon-client--make-user-details-plist))
+         (plstore (plstore-open (mastodon-client--token-file)))
+         (username (plist-get user-details :username))
+         (plstore-value (setq user-details
+                              (plist-put user-details :access_token token)))
+         (print-length nil)
+         (print-level nil))
+    (plstore-put plstore (concat "user-" username) plstore-value nil)
+    (plstore-save plstore)
+    (plstore-close plstore)
+    plstore-value))
+
+(defun mastodon-client--make-user-active (user-details)
+  "USER-DETAILS is a plist consisting of user details."
+  (let ((plstore (plstore-open (mastodon-client--token-file)))
+        (print-length nil)
+        (print-level nil))
+    (plstore-put plstore "active-user" user-details nil)
+    (plstore-save plstore)
+    (plstore-close plstore)))
+
+(defun mastodon-client--form-user-from-vars ()
+  "Create a username from user variable.  Return that username.
+
+Username in the form user@instance.com is formed from the
+variables `mastodon-instance-url' and `mastodon-active-user'."
+  (concat mastodon-active-user
+          "@"
+          (url-host (url-generic-parse-url mastodon-instance-url))))
+
+(defun mastodon-client--make-current-user-active ()
+  "Make the user specified by user variables active user.
+Return the details (plist)."
+  (let ((username (mastodon-client--form-user-from-vars))
+        user-plist)
+    (when (setq user-plist
+                (mastodon-client--general-read (concat "user-" username)))
+      (mastodon-client--make-user-active user-plist))
+    user-plist))
+
+(defun mastodon-client--current-user-active-p ()
+  "Return user-details if the current user is active.
+Otherwise return nil."
+  (let ((username (mastodon-client--form-user-from-vars))
+        (user-details (mastodon-client--general-read "active-user")))
+    (when (and user-details
+               (equal (plist-get user-details :username) username))
+      user-details)))
+
+(defun mastodon-client--active-user ()
+  "Return the details of the currently active user.
+
+Details is a plist."
+  (let ((active-user-details mastodon-client--active-user-details-plist))
+    (unless active-user-details
+      (setq active-user-details
+            (or (mastodon-client--current-user-active-p)
+                (mastodon-client--make-current-user-active)))
+      (setq mastodon-client--active-user-details-plist
+            active-user-details))
+    active-user-details))
 
 (defun mastodon-client ()
   "Return variable client secrets to use for `mastodon-instance-url'.

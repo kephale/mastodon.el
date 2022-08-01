@@ -3,7 +3,7 @@
 ;; Copyright (C) 2017-2019 Johnson Denen
 ;; Author: Johnson Denen <johnson.denen@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
-;; Version: 0.10.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (seq "1.0"))
 ;; Homepage: https://codeberg.org/martianh/mastodon.el
 
@@ -207,6 +207,10 @@ JSON is the data returned by the server."
          (buffer (get-buffer-create "*mastodon-update-profile*"))
          (inhibit-read-only t))
     (switch-to-buffer-other-window buffer)
+    (setq-local header-line-format
+                (propertize
+                 "Edit your profile note. C-c C-c to send, C-c C-k to cancel."
+                 'face font-lock-comment-face))
     (mastodon-profile-update-mode t)
     (insert note)
     (goto-char (point-min))
