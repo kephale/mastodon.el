@@ -76,8 +76,12 @@ once and the constant reloading is an interruption."
   :group 'mastodon-notifications
   :type 'boolean)
 
+
+(defvar mastodon-notifications-modeline-indicator nil
+  "Holds the display string to be added to `mode-line-misc-info'.")
+
 (persist-defvar mastodon-notifications-newest-id nil
-  "The ID of the newest notification already loaded and seen
+                "The ID of the newest notification already loaded and seen
   locally. It's value is saved between sessions by `persist'.")
 
 (defvar mastodon-notifications--types-alist
@@ -299,6 +303,11 @@ of the toot responded to."
    "notifications"
    'mastodon-notifications--timeline))
 
+(defun mastodon-notifications--masto-buffer-p (buffer)
+  "Check if BUFFER is in `mastodon-mode' or `mastodon-toot-mode'."
+  (or (equal major-mode 'mastodon-mode)
+      (member 'mastodon-toot-mode minor-mode-list)))
+
 (defun mastodon-notifications--check-for-new-timer ()
   "Run `mastodon-notifications--check-for-new' with arg `mastodon-notifications-newest-id'."
   (mastodon-notifications--check-for-new mastodon-notifications-newest-id))
@@ -317,9 +326,8 @@ Run in `mastodon-mode-hook' if
   "Check the server for new notifications since NEWEST-ID.
 Runs `mastodon-notifications--modeline-display-unread-count' on
 the response."
-  ;;only in masto mode:
-  (when (or (equal major-mode 'mastodon-mode)
-            (string= "*new toot*" (buffer-name)))
+  ;; only in masto modes:
+  (when (mastodon-notifications--masto-buffer-p (current-buffer))
     (let ((prev-buffer (current-buffer)))
       (mastodon-http--get-params-async-json
        (mastodon-http--api "notifications")
@@ -333,27 +341,62 @@ the response."
   "If we have new notifications in RESPONSE, update modeline in BUFFER.
 Callback for `mastodon-notifications--check-for-new'."
   (let* ((count (length response))
-         (count-display (propertize
-                         (number-to-string count)
-                         'face 'mastodon-boosted-face))
+         (count-display (propertize (number-to-string count)
+                                    'face 'mastodon-boosted-face
+                                    'help-echo "mastodon new notifications count"))
          (notifs-display (propertize
                           (if (require 'all-the-icons nil :no-error)
                               ""
                             "notifs:")
-                          'face 'mastodon-display-name-face))
-         (display (propertize (concat notifs-display count-display)
-                              'mouse-face 'mode-line-highlight
-                              'help-echo "mastodon notifications count")))
+                          'face 'mastodon-display-name-face
+                          'help-echo "mastodon new notifications count")))
     (when
         ;; buffer not yet killed:
-        (buffer-live-p buffer);)
-      (with-current-buffer buffer
-        (setq-local mode-line-misc-info display))
+        (and (buffer-live-p buffer)
+             ;; buffer is a mastodon buffer:
+             (mastodon-notifications--masto-buffer-p (current-buffer)))
+      (setq mastodon-notifications-modeline-indicator
+            (concat notifs-display count-display))
+      ;; add to mode line misc info:
+      ;; if not a member of `mode-line-misc-info', add it, once only:
+      (unless (assoc 'mastodon-tl--buffer-spec mode-line-misc-info)
+        (add-to-list 'mode-line-misc-info
+                     ;; variable that must be non-nil if notifs are to be
+                     ;; displayed:
+                     '(mastodon-tl--buffer-spec
+                       ;; try to prop our display again:
+                       (:propertize mastodon-notifications-modeline-indicator
+                                    ;; duplication is all that seems to work!:
+                                    '(face mastodon-display-name-face
+                                           help-echo "mastodon new notifications count"
+                                           ;; keymap mastodon-notifications--modeline-map
+                                           follow-link t)))))
       ;; reload if in notifs view and we have new notifs:
       (when (and mastodon-notifications-reload-when-new
                  (equal (buffer-name buffer) "*mastodon-notifications*")
                  (> count 0))
         (mastodon-notifications--get)))))
 
+;; FIXME: when can we possibly call this?
+(defun mastodon-notifications--cleanup-timer ()
+  "Cancel the modeline notifications timer.
+Also restore `mode-line-misc-info' to its previous value."
+  (cancel-timer mastodon-notifications-new-notifications-timer)
+  ;; perhaps this isn't necessary as we only set it when in a masto buffer:
+  (setq mode-line-misc-info
+        (delete
+         (assoc 'mastodon-tl--buffer-spec mode-line-misc-info)
+         mode-line-misc-info)))
+
+;; (defvar mastodon-notifications--modeline-map
+;;   (let ((map (make-sparse-keymap)))
+;;     (define-key map [mouse-2] 'mastodon-notifications--get)
+;;     (define-key map [mouse-1] 'mastodon-notifications--get)
+;;     (define-key map [follow-link] 'mouse-face)
+;;     (keymap-canonicalize map))
+;;   "The keymap for mastodon modeline notifications.")
+
+
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here
+
