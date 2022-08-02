@@ -306,7 +306,11 @@ of the toot responded to."
 (defun mastodon-notifications--masto-buffer-p (buffer)
   "Check if BUFFER is in `mastodon-mode' or `mastodon-toot-mode'."
   (or (equal major-mode 'mastodon-mode)
-      (member 'mastodon-toot-mode minor-mode-list)))
+      ;; for profile update buffer, etc.:
+      (string-prefix-p "*mastodon" (buffer-name buffer))
+      (equal (buffer-name buffer) "*new toot*")))
+;; doesn't work because our minor modes don't get killed!:
+;; (member 'mastodon-toot-mode minor-mode-list)))
 
 (defun mastodon-notifications--check-for-new-timer ()
   "Run `mastodon-notifications--check-for-new' with arg `mastodon-notifications-newest-id'."
