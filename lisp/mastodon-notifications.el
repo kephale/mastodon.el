@@ -305,7 +305,7 @@ of the toot responded to."
 
 (defun mastodon-notifications--masto-buffer-p (buffer)
   "Check if BUFFER is in `mastodon-mode' or `mastodon-toot-mode'."
-  (or (equal major-mode 'mastodon-mode)
+  (or (eql major-mode 'mastodon-mode)
       ;; for profile update buffer, etc.:
       (string-prefix-p "*mastodon" (buffer-name buffer))
       (equal (buffer-name buffer) "*new toot*")))
