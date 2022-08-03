@@ -62,7 +62,7 @@
   :group 'mastodon)
 
 ;;;###autoload
-(defcustom mastodon-notifications-reload-when-new t
+(defcustom mastodon-notifications-reload-when-new nil
   "Reload the notifications timeline when new notifications are found.
 The check is done by `mastodon-notifications--check-for-new'. You
 may want to disable this if you often get a lot of notifications at
