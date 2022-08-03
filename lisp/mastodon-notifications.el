@@ -361,19 +361,14 @@ Callback for `mastodon-notifications--check-for-new'."
              ;; buffer is a mastodon buffer:
              (mastodon-notifications--masto-buffer-p (current-buffer)))
       (setq mastodon-notifications-modeline-indicator notifs-display)
-      ;; (concat notifs-display count-display))
       ;; if not a member of `mode-line-misc-info', add it, once only:
       (unless (assoc 'mastodon-tl--buffer-spec mode-line-misc-info)
         (add-to-list 'mode-line-misc-info
                      ;; variable that must be non-nil if notifs are to be
                      ;; displayed:
-                     '(mastodon-tl--buffer-spec
-                       ;; try to prop our display again:
-                       (:propertize mastodon-notifications-modeline-indicator
-                                    ;; duplication is all that seems to work!:
-                                    ;; FIXME this errors with redisplay
-                                    `(face ,mastodon-display-name-face)))))
-      ;; reload if in notifs view and we have new notifs:
+                     `(mastodon-tl--buffer-spec
+                       ;; display string:
+                       ,mastodon-notifications-modeline-indicator)))
       (when (and mastodon-notifications-reload-when-new
                  (equal (buffer-name buffer) "*mastodon-notifications*")
                  (> count 0))
