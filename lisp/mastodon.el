@@ -273,6 +273,42 @@ If REPLY-JSON is the json of the toot being replied to."
                                 (when mastodon-notifications-display-modeline-count
                                   (mastodon-notifications--set-and-run-timer))))
 
+(add-hook 'kill-buffer-hook #'mastodon-kill-all-timers)
+
+(defun mastodon-kill-all-timers ()
+  ""
+  ;; kill buffer-local timestamp timer:
+  (when mastodon-tl--timestamp-update-timer
+    (cancel-timer mastodon-tl--timestamp-update-timer))
+  ;; kill notifs timer when last masto buffer killed:
+  ;; (unless
+  ;;     ;; return t if there are any mastodon-mode buffers:
+  ;;     ;; FIXME: needs to be if there are any OTHER masto buffers,
+  ;;     ;; coz this will catch the one being killed :/
+  ;;     (some (lambda (buffer)
+  ;;             (or (eql 'mastodon-mode
+  ;;                      (with-current-buffer buffer major-mode))
+  ;;                 ;; for profile update buffer, etc.:
+  ;;                 (string-prefix-p "*mastodon" (buffer-name buffer))
+  ;;                 (equal (buffer-name buffer) "*new toot*")))
+  ;;           (buffer-list))
+  ;;   )
+
+  ;; this kills timer on *loading* first masto buffer!:
+  (let ((count 0))
+    (mapcar (lambda (buffer)
+              (when
+                  (or (eql 'mastodon-mode
+                           (with-current-buffer buffer major-mode))
+                      ;; for profile update buffer, etc.:
+                      (string-prefix-p "*mastodon" (buffer-name buffer))
+                      (equal (buffer-name buffer) "*new toot*"))
+                (incf count)))
+            (buffer-list))
+    (when (= 1 count)
+      (cancel-timer mastodon-notifications-new-notifications-timer))))
+
+
 (define-derived-mode mastodon-mode special-mode "Mastodon"
   "Major mode for Mastodon, the federated microblogging network."
   :group 'mastodon
