@@ -89,9 +89,9 @@
                        ("-" "zoom out" 'image-decrease-size)
                        ("u" "copy URL" 'shr-maybe-probe-and-copy-url))
                       ("Profile view"
-                       ("o" "Show following" mastodon-profile--open-following)
-                       ("O" "Show followers" mastodon-profile--open-followers)
-                       
+                       ("g" "Show following" mastodon-profile--open-following)
+                       ("s" "Show followers" mastodon-profile--open-followers)
+                       ("C-c C-c" "Cycle profile views" mastodon-profile-account-view-cycle)
                        ("R" "View follow requests" mastodon-profile--view-follow-requests)
                        ("a" "Accept follow request" mastodon-profile--follow-request-accept)
                        ("j" "Reject follow request" mastodon-profile--follow-request-reject)
