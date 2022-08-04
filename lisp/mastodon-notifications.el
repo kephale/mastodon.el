@@ -321,6 +321,8 @@ of the toot responded to."
 First we cancel any existing timers to avoid them accumulating.
 Run in `mastodon-mode-hook' if
 `mastodon-notifications-display-modeline-count' is t."
+  ;; if we don't cancel here, we end w with lots of timers, ergo too many requests
+  ;; if we do cancel here, we end up with no timer.
   (setq mastodon-notifications-new-notifications-timer
         (run-at-time "5" nil #'mastodon-notifications--check-for-new-timer)))
 
