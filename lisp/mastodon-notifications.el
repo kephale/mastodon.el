@@ -390,6 +390,7 @@ Also restore `mode-line-misc-info' to its previous value."
 
 
 
+
 (provide 'mastodon-notifications)
 ;;; mastodon-notifications.el ends here
 

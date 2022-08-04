@@ -34,6 +34,7 @@
 ;;; Code:
 (require 'cl-lib) ; for `cl-some' call in mastodon
 (require 'mastodon-toot)
+(require 'mastodon-notifications)
 
 (declare-function discover-add-context-menu "discover")
 (declare-function emojify-mode "emojify")
@@ -50,7 +51,7 @@
 (autoload 'mastodon-tl--thread "mastodon-tl")
 (autoload 'mastodon-tl--toggle-spoiler-text-in-toot "mastodon-tl")
 (autoload 'mastodon-tl--update "mastodon-tl")
-(autoload 'mastodon-notifications--get "mastodon-notifications")
+;; (autoload 'mastodon-notifications--get "mastodon-notifications")
 (autoload 'mastodon-profile--get-toot-author "mastodon-profile")
 (autoload 'mastodon-profile--make-author-buffer "mastodon-profile")
 (autoload 'mastodon-profile--show-user "mastodon-profile")
@@ -69,8 +70,8 @@
 (autoload 'mastodon-profile--my-profile "mastodon-profile")
 (autoload 'mastodon-profile--view-favourites "mastodon-profile")
 (autoload 'mastodon-profile--view-follow-requests "mastodon-profile")
-(autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
-(autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
+;; (autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
+;; (autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
 (autoload 'mastodon-search--search-query "mastodon-search")
 ;; (autoload 'mastodon-toot--delete-toot "mastodon-toot")
 ;; (autoload 'mastodon-toot--copy-toot-url "mastodon-toot")
@@ -87,8 +88,8 @@
 ;; (autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 (autoload 'mastoton-tl--view-filters "mastodon-tl")
-(autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
-(defvar mastodon-notifications-display-modeline-count)
+;; (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
+;; (defvar mastodon-notifications-display-modeline-count)
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
 
 (when (require 'lingva nil :no-error)
@@ -272,42 +273,6 @@ If REPLY-JSON is the json of the toot being replied to."
                                     (mastodon-toot--enable-custom-emoji)))
                                 (when mastodon-notifications-display-modeline-count
                                   (mastodon-notifications--set-and-run-timer))))
-
-(add-hook 'kill-buffer-hook #'mastodon-kill-all-timers)
-
-(defun mastodon-kill-all-timers ()
-  ""
-  ;; kill buffer-local timestamp timer:
-  (when mastodon-tl--timestamp-update-timer
-    (cancel-timer mastodon-tl--timestamp-update-timer))
-  ;; kill notifs timer when last masto buffer killed:
-  ;; (unless
-  ;;     ;; return t if there are any mastodon-mode buffers:
-  ;;     ;; FIXME: needs to be if there are any OTHER masto buffers,
-  ;;     ;; coz this will catch the one being killed :/
-  ;;     (some (lambda (buffer)
-  ;;             (or (eql 'mastodon-mode
-  ;;                      (with-current-buffer buffer major-mode))
-  ;;                 ;; for profile update buffer, etc.:
-  ;;                 (string-prefix-p "*mastodon" (buffer-name buffer))
-  ;;                 (equal (buffer-name buffer) "*new toot*")))
-  ;;           (buffer-list))
-  ;;   )
-
-  ;; this kills timer on *loading* first masto buffer!:
-  (let ((count 0))
-    (mapcar (lambda (buffer)
-              (when
-                  (or (eql 'mastodon-mode
-                           (with-current-buffer buffer major-mode))
-                      ;; for profile update buffer, etc.:
-                      (string-prefix-p "*mastodon" (buffer-name buffer))
-                      (equal (buffer-name buffer) "*new toot*"))
-                (incf count)))
-            (buffer-list))
-    (when (= 1 count)
-      (cancel-timer mastodon-notifications-new-notifications-timer))))
-
 
 (define-derived-mode mastodon-mode special-mode "Mastodon"
   "Major mode for Mastodon, the federated microblogging network."
