@@ -34,7 +34,6 @@
 ;;; Code:
 (require 'cl-lib) ; for `cl-some' call in mastodon
 (require 'mastodon-toot)
-(require 'mastodon-notifications)
 
 (declare-function discover-add-context-menu "discover")
 (declare-function emojify-mode "emojify")
@@ -51,7 +50,7 @@
 (autoload 'mastodon-tl--thread "mastodon-tl")
 (autoload 'mastodon-tl--toggle-spoiler-text-in-toot "mastodon-tl")
 (autoload 'mastodon-tl--update "mastodon-tl")
-;; (autoload 'mastodon-notifications--get "mastodon-notifications")
+(autoload 'mastodon-notifications--get "mastodon-notifications")
 (autoload 'mastodon-profile--get-toot-author "mastodon-profile")
 (autoload 'mastodon-profile--make-author-buffer "mastodon-profile")
 (autoload 'mastodon-profile--show-user "mastodon-profile")
@@ -70,8 +69,8 @@
 (autoload 'mastodon-profile--my-profile "mastodon-profile")
 (autoload 'mastodon-profile--view-favourites "mastodon-profile")
 (autoload 'mastodon-profile--view-follow-requests "mastodon-profile")
-;; (autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
-;; (autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
+(autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
+(autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
 (autoload 'mastodon-search--search-query "mastodon-search")
 ;; (autoload 'mastodon-toot--delete-toot "mastodon-toot")
 ;; (autoload 'mastodon-toot--copy-toot-url "mastodon-toot")
@@ -88,8 +87,8 @@
 ;; (autoload 'mastodon-toot--delete-and-redraft-toot "mastodon-toot")
 (autoload 'mastodon-profile--view-bookmarks "mastodon-profile")
 (autoload 'mastoton-tl--view-filters "mastodon-tl")
-;; (autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
-;; (defvar mastodon-notifications-display-modeline-count)
+(autoload 'mastodon-notifications--set-and-run-timer "mastodon-notifications")
+(defvar mastodon-notifications-display-modeline-count)
 ;; (autoload 'mastodon-toot--bookmark-toot-toggle "mastodon-toot")
 
 (when (require 'lingva nil :no-error)
