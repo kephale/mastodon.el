@@ -357,18 +357,19 @@ Callback for `mastodon-notifications--check-for-new'."
                                       'mouse-2 'mastodon-notifications--get))))
     (when
         ;; buffer not yet killed:
-        (and (buffer-live-p buffer)
-             ;; buffer is a mastodon buffer:
-             (mastodon-notifications--masto-buffer-p (current-buffer)))
+        (and (buffer-live-p buffer))
+      ;; buffer is a mastodon buffer:
+      ;; this makes things much tricker i think, so commenting:
+      ;; (mastodon-notifications--masto-buffer-p (current-buffer)))
       (setq mastodon-notifications-modeline-indicator notifs-display)
       ;; if not a member of `mode-line-misc-info', add it, once only:
       (unless (assoc 'mastodon-tl--buffer-spec mode-line-misc-info)
         (add-to-list 'mode-line-misc-info
                      ;; variable that must be non-nil if notifs are to be
                      ;; displayed:
-                     `(mastodon-tl--buffer-spec
+                     '(mastodon-tl--buffer-spec
                        ;; display string:
-                       ,mastodon-notifications-modeline-indicator)))
+                       (:eval mastodon-notifications-modeline-indicator))))
       (when (and mastodon-notifications-reload-when-new
                  (equal (buffer-name buffer) "*mastodon-notifications*")
                  (> count 0))
