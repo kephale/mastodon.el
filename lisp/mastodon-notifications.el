@@ -322,9 +322,11 @@ First we cancel any existing timers to avoid them accumulating.
 Run in `mastodon-mode-hook' if
 `mastodon-notifications-display-modeline-count' is t."
   ;; if we don't cancel here, we end w with lots of timers, ergo too many requests
-  ;; if we do cancel here, we end up with no timer.
+  ;; if we do cancel here, we end up with no timer, dunno why.
+  (when mastodon-notifications-new-notifications-timer
+    (cancel-timer mastodon-notifications-new-notifications-timer))
   (setq mastodon-notifications-new-notifications-timer
-        (run-at-time "5" nil #'mastodon-notifications--check-for-new-timer)))
+        (run-at-time nil 5 #'mastodon-notifications--check-for-new-timer)))
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.
