@@ -324,7 +324,16 @@ Run in `mastodon-mode-hook' if
   (when mastodon-notifications-new-notifications-timer
     (cancel-timer mastodon-notifications-new-notifications-timer))
   (setq mastodon-notifications-new-notifications-timer
+        ;; i tried running this at "5" with no repeat, then running the
+        ;; present function again at the end of
+        ;; --modeline-display-unread-count, if there were any masto buffers
+        ;; still alive, but it didn't work: sometimes the timer would be
+        ;; re-created, but not always using kill-buffer-hook to kill any last
+        ;; timer doesn't work either, because it runs on *loading*
+        ;; mastodon-mode/buffers, so it kills the timer as soon as it is
+        ;; created, or something.
         (run-at-time nil 5 #'mastodon-notifications--check-for-new-timer)))
+
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.
