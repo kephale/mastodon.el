@@ -321,19 +321,8 @@ of the toot responded to."
 First we cancel any existing timers to avoid them accumulating.
 Run in `mastodon-mode-hook' if
 `mastodon-notifications-display-modeline-count' is t."
-  (when mastodon-notifications-new-notifications-timer
-    (cancel-timer mastodon-notifications-new-notifications-timer))
   (setq mastodon-notifications-new-notifications-timer
-        ;; i tried running this at "5" with no repeat, then running the
-        ;; present function again at the end of
-        ;; --modeline-display-unread-count, if there were any masto buffers
-        ;; still alive, but it didn't work: sometimes the timer would be
-        ;; re-created, but not always using kill-buffer-hook to kill any last
-        ;; timer doesn't work either, because it runs on *loading*
-        ;; mastodon-mode/buffers, so it kills the timer as soon as it is
-        ;; created, or something.
-        (run-at-time nil 5 #'mastodon-notifications--check-for-new-timer)))
-
+        (run-at-time "5" nil #'mastodon-notifications--check-for-new-timer)))
 
 (defun mastodon-notifications--check-for-new (newest-id)
   "Check the server for new notifications since NEWEST-ID.
@@ -382,22 +371,8 @@ Callback for `mastodon-notifications--check-for-new'."
       (when (and mastodon-notifications-reload-when-new
                  (equal (buffer-name buffer) "*mastodon-notifications*")
                  (> count 0))
-        (mastodon-notifications--get)))))
-
-;; FIXME: when can we possibly cleanup notifs timer?
-;; notifs check cd be a minor mode, enabled when the var is t?
-;; (add-hook 'change-major-mode-hook #'mastodon-notifications--cleanup-timer)
-(defun mastodon-notifications--cleanup-timer ()
-  "Cancel the modeline notifications timer.
-Also restore `mode-line-misc-info' to its previous value."
-  (cancel-timer mastodon-notifications-new-notifications-timer)
-  ;; this isn't necessary as we now only set it when in a masto buffer:
-  (setq mode-line-misc-info
-        (delete
-         (assoc 'mastodon-tl--buffer-spec mode-line-misc-info)
-         mode-line-misc-info)))
-
-
+        (mastodon-notifications--get)))
+    (mastodon-notifications--set-and-run-timer)))
 
 
 (provide 'mastodon-notifications)
