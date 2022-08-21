@@ -1,12 +1,11 @@
 ;;; mastodon-async.el --- Client for Mastodon -*- lexical-binding: t -*-
 
-;; Copyright (C) 2017 Johnson Denen
-;; Author: Johnson Denen <johnson.denen@gmail.com>
-;;         Alex J. Griffith <griffitaj@gmail.com>
+;; Copyright (C) 2017 Alex J. Griffith
+;; Author: Alex J. Griffith <griffitaj@gmail.com>
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1"))
-;; Homepage: https://git.blast.noho.st/mouse/mastodon.el
+;; Homepage: https://codeberg.org/martianh/mastodon.el
 
 ;; This file is not part of GNU Emacs.
 

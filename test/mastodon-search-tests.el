@@ -126,7 +126,10 @@
   (should
    (equal
     (mastodon-search--get-user-info mastodon-search--single-account-query)
-    '(": ( ) { : | : & } ; :" "mousebot" "https://todon.nl/@mousebot"))))
+    '(": ( ) { : | : & } ; :"
+      "mousebot"
+      "https://todon.nl/@mousebot"
+      "<p>poetry, writing, dmt, desertion, trash, black metal, translation, hegel, language, autonomia....</p><p><a href=\"https://anarchive.mooo.com\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">anarchive.mooo.com</span><span class=\"invisible\"></span></a><br /><a href=\"https://pleasantlybabykid.tumblr.com/\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">pleasantlybabykid.tumblr.com/</span><span class=\"invisible\"></span></a><br />IG: <a href=\"https://bibliogram.snopyta.org/u/martianhiatus\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"ellipsis\">bibliogram.snopyta.org/u/marti</span><span class=\"invisible\">anhiatus</span></a><br />photos alt: <span class=\"h-card\"><a href=\"https://todon.eu/@goosebot\" class=\"u-url mention\">@<span>goosebot</span></a></span><br />git: <a href=\"https://git.blast.noho.st/mouse\" rel=\"nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">git.blast.noho.st/mouse</span><span class=\"invisible\"></span></a></p><p>want to trade chapbooks or zines? hmu!</p><p>he/him or they/them</p>"))))
 
 (ert-deftest mastodon-search--get-hashtag-info ()
   "Should build a list of hashtag name and URL."

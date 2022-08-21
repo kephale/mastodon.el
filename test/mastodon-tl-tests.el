@@ -559,7 +559,7 @@ a string or a numeric."
         (mock (mastodon-tl--relative-time-details 'fake-timestamp) =>
               (cons "xxx ago"  soon-in-the-future))
         (mock (cancel-timer 'initial-timer))
-        (mock (run-at-time soon-in-the-future nil
+        (mock (run-at-time * nil
                            #'mastodon-tl--update-timestamps-callback
                            (current-buffer) nil) => 'new-timer)
 

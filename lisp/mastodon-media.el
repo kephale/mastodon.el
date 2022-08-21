@@ -5,7 +5,7 @@
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1"))
-;; Homepage: https://git.blast.noho.st/mouse/mastodon.el
+;; Homepage: https://codeberg.org/martianh/mastodon.el
 
 ;; This file is not part of GNU Emacs.
 
@@ -272,6 +272,20 @@ Replace them with the referenced image."
             (put-text-property start end 'media-state 'loading)
             (mastodon-media--load-image-from-url
              image-url media-type start (- end start))))))))
+            ;; (mastodon-media--moving-image-overlay start end)))))))
+
+;; (defun mastodon-media--moving-image-overlay (start end)
+;;   "Add play symbol overlay to moving image media items."
+;;   (let ((ov (make-overlay start end))
+;;         (type (get-text-property start 'mastodon-media-type)))
+;;     (when (or (equal type "gifv")
+;;               (equal type "video"))
+;;       (overlay-put
+;;        ov
+;;        'after-string
+;;        (propertize " "
+;;                    'face
+;;                    '((:height 1.5 :inherit 'font-lock-comment-face)))))))
 
 (defun mastodon-media--get-avatar-rendering (avatar-url)
   "Return the string to be written that renders the avatar at AVATAR-URL."
@@ -293,12 +307,17 @@ Replace them with the referenced image."
                                  t image-options))
      " ")))
 
-(defun mastodon-media--get-media-link-rendering (media-url &optional full-remote-url type)
+(defun mastodon-media--get-media-link-rendering (media-url &optional full-remote-url type caption)
   "Return the string to be written that renders the image at MEDIA-URL.
 FULL-REMOTE-URL is used for `shr-browse-image'.
-TYPE is the attachment's type field on the server."
-  (let ((help-echo
-         "RET/i: load full image (prefix: copy URL), +/-: zoom, r: rotate, o: save preview"))
+TYPE is the attachment's type field on the server.
+CAPTION is the image caption if provided."
+  (let* ((help-echo-base "RET/i: load full image (prefix: copy URL), +/-: zoom, r: rotate, o: save preview")
+        (help-echo (if caption
+                       (concat help-echo-base
+                               "\n\""
+                               caption "\"")
+                     help-echo-base)))
     (concat
      (propertize "[img]"
                  'media-url media-url
@@ -310,9 +329,11 @@ TYPE is the attachment's type field on the server."
                  'mastodon-tab-stop 'image ; for do-link-action-at-point
                  'image-url full-remote-url ; for shr-browse-image
                  'keymap mastodon-tl--shr-image-map-replacement
-                 'help-echo (if (string= type "image")
+                 'help-echo (if (or (string= type "image")
+                                    (string= type nil)
+                                    (string= type "unknown")) ;handle borked images
                                 help-echo
-                              (concat help-echo "\ntype: " type)))
+                              (concat help-echo "\nC-RET: play " type " with mpv")))
                  " ")))
 
 (provide 'mastodon-media)

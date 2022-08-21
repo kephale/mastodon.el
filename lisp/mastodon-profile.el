@@ -5,7 +5,7 @@
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1") (seq "1.0"))
-;; Homepage: https://git.blast.noho.st/mouse/mastodon.el
+;; Homepage: https://codeberg.org/martianh/mastodon.el
 
 ;; This file is not part of GNU Emacs.
 
@@ -55,12 +55,21 @@
 (autoload 'mastodon-tl--toot-id "mastodon-tl")
 (autoload 'mastodon-tl--toot "mastodon-tl")
 (autoload 'mastodon-tl--init "mastodon-tl.el")
+(autoload 'mastodon-tl--init-sync "mastodon-tl")
 (autoload 'mastodon-http--patch "mastodon-http")
 (autoload 'mastodon-http--patch-json "mastodon-http")
+(autoload 'mastodon-notifications--follow-request-reject "mastodon-notifications")
+(autoload 'mastodon-notifications--follow-request-accept "mastodon-notifications")
+(autoload 'mastodon-tl--goto-next-item "mastodon-tl")
+(autoload 'mastodon-tl--goto-prev-item "mastodon-tl")
+(autoload 'mastodon-tl--goto-first-item "mastodon-tl")
+(autoload 'mastodon-toot "mastodon")
+(autoload 'mastodon-search--insert-users-propertized "mastodon-search")
 
 (defvar mastodon-instance-url)
 (defvar mastodon-tl--buffer-spec)
 (defvar mastodon-tl--update-point)
+(defvar mastodon-mode-map)
 
 (defvar-local mastodon-profile--account nil
   "The data for the account being described in the current profile buffer.")
@@ -69,8 +78,23 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "s") #'mastodon-profile--open-followers)
     (define-key map (kbd "g") #'mastodon-profile--open-following)
+    (define-key map (kbd "C-c C-c") #'mastodon-profile--account-view-cycle)
     map)
   "Keymap for `mastodon-profile-mode'.")
+
+(defvar mastodon-profile--view-follow-requests-keymap
+  (let ((map ;(make-sparse-keymap)))
+         (copy-keymap mastodon-mode-map)))
+    (define-key map (kbd "r") #'mastodon-notifications--follow-request-reject)
+    (define-key map (kbd "a") #'mastodon-notifications--follow-request-accept)
+    (define-key map (kbd "n") #'mastodon-tl--goto-next-item)
+    (define-key map (kbd "p") #'mastodon-tl--goto-prev-item)
+    (define-key map (kbd "g") #'mastodon-profile--view-follow-requests)
+    ;; (define-key map (kbd "t") #'mastodon-toot)
+    ;; (define-key map (kbd "q") #'kill-current-buffer)
+    ;; (define-key map (kbd "Q") #'kill-buffer-and-window)
+    map)
+  "Keymap for viewing follow requests.")
 
 (define-minor-mode mastodon-profile-mode
   "Toggle mastodon profile minor mode.
@@ -106,6 +130,19 @@ extra keybindings."
   "Take an ACCOUNT json and insert a user account into a new buffer."
   (mastodon-profile--make-profile-buffer-for
    account "statuses" #'mastodon-tl--timeline))
+
+;; TODO: we shd just load all views' data then switch coz this is slow af:
+(defun mastodon-profile-account-view-cycle ()
+  "Cycle through profile view: toots, followers, and following."
+  (interactive)
+  (let ((endpoint (plist-get mastodon-tl--buffer-spec 'endpoint)))
+    (cond ((string-suffix-p "statuses" endpoint)
+           (mastodon-profile--open-followers))
+          ((string-suffix-p "followers" endpoint)
+           (mastodon-profile--open-following))
+          (t
+           (mastodon-profile--make-profile-buffer-for
+            mastodon-profile--account "statuses" #'mastodon-tl--timeline)))))
 
 (defun mastodon-profile--open-following ()
   "Open a profile buffer showing the accounts that current profile follows."
@@ -146,10 +183,31 @@ extra keybindings."
 (defun mastodon-profile--view-follow-requests ()
   "Open a new buffer displaying the user's follow requests."
   (interactive)
-  (mastodon-profile-mode)
-  (mastodon-tl--init "follow-requests"
-                     "follow_requests"
-                     'mastodon-profile--add-author-bylines))
+  (mastodon-tl--init-sync "follow-requests"
+                          "follow_requests"
+                          'mastodon-profile--insert-follow-requests)
+  (use-local-map mastodon-profile--view-follow-requests-keymap)
+  (mastodon-tl--goto-first-item))
+
+(defun mastodon-profile--insert-follow-requests (json)
+  "Insert the user's current follow requests.
+JSON is the data returned by the server."
+  (insert (mastodon-tl--set-face
+           (concat "\n ------------\n"
+                   " FOLLOW REQUESTS\n"
+                   " ------------\n\n")
+           'success)
+          (mastodon-tl--set-face
+           "[a/r - accept/reject request at point\n n/p - go to next/prev request]\n\n"
+           'font-lock-comment-face))
+  (if (equal json '[])
+      (insert (propertize
+               "Looks like you have no follow requests for now."
+               'face font-lock-comment-face
+               'byline t
+               'toot-id "0"))
+    (mastodon-search--insert-users-propertized json :note)))
+    ;; (mastodon-profile--add-author-bylines json)))
 
 (defun mastodon-profile--update-user-profile-note ()
   "Fetch user's profile note and display for editing."
@@ -163,6 +221,11 @@ extra keybindings."
          (buffer (get-buffer-create "*mastodon-update-profile*"))
          (inhibit-read-only t))
     (switch-to-buffer-other-window buffer)
+    (text-mode)
+    (setq-local header-line-format
+                (propertize
+                 "Edit your profile note. C-c C-c to send, C-c C-k to cancel."
+                 'face font-lock-comment-face))
     (mastodon-profile-update-mode t)
     (insert note)
     (goto-char (point-min))
@@ -190,37 +253,25 @@ extra keybindings."
 
 (defun mastodon-profile--fields-get (account)
   "Fetch the fields vector (aka profile metadata) from profile of ACCOUNT.
-
 Returns a list of lists."
   (let ((fields (mastodon-profile--account-field account 'fields)))
     (when fields
-      (mapcar
-       (lambda (el)
-         (list
-          (alist-get 'name el)
-          (alist-get 'value el)))
-       fields))))
+      (mapcar (lambda (el)
+                (list (alist-get 'name el)
+                      (alist-get 'value el)))
+              fields))))
 
 (defun mastodon-profile--fields-insert (fields)
   "Format and insert field pairs (a.k.a profile metadata) in FIELDS."
   (let* ((car-fields (mapcar 'car fields))
-         ;; (cdr-fields (mapcar 'cadr fields))
-         ;; (cdr-fields-rendered
-         ;; (list
-         ;; (mapcar (lambda (x)
-         ;; (mastodon-tl--render-text x nil))
-         ;; cdr-fields)))
          (left-width (car (sort (mapcar 'length car-fields) '>))))
-    ;; (right-width (car (sort (mapcar 'length cdr-fields) '>))))
     (mapconcat (lambda (field)
                  (mastodon-tl--render-text
                   (concat
                    (format "_ %s " (car field))
                    (make-string (- (+ 1 left-width) (length (car field))) ?_)
                    (format " :: %s" (cadr field)))
-                  ;; (make-string (- (+ 1 right-width) (length (cdr field))) ?_)
-                  ;; " |")
-                  field)) ; nil)) ; hack to make links tabstops
+                  field)) ; hack to make links tabstops
                fields "")))
 
 (defun mastodon-profile--get-statuses-pinned (account)
@@ -336,7 +387,6 @@ Returns a list of lists."
           (mastodon-profile--insert-statuses-pinned pinned)
           (setq mastodon-tl--update-point (point))) ;updates to follow pinned toots
         (funcall update-function json)))
-    ;;(mastodon-tl--goto-next-toot)
     (goto-char (point-min))))
 
 (defun mastodon-profile--get-toot-author ()
@@ -357,22 +407,28 @@ If toot is a boost, opens the profile of the booster."
   "Query for USER-HANDLE from current status and show that user's profile."
   (interactive
    (list
-    (let ((user-handles (mastodon-profile--extract-users-handles
-                         (mastodon-profile--toot-json))))
-      (completing-read "View profile of user [choose or enter any handle]: "
-                       user-handles
-                       nil ; predicate
-                       'confirm))))
-  (let ((account (or
-                  ;; when no toot at point:
-                  (mastodon-profile--search-account-by-handle user-handle)
-                  (mastodon-profile--lookup-account-in-status
-                      user-handle (mastodon-profile--toot-json)))))
-    (if account
-        (progn
-          (message "Loading profile of user %s..." user-handle)
-          (mastodon-profile--make-author-buffer account))
-      (message "Cannot find a user with handle %S" user-handle))))
+    (if (and (not (string-prefix-p "accounts" (mastodon-tl--get-endpoint))) ;profile view
+             (not (get-text-property (point) 'toot-json)))
+        (message "Looks like there's no toot or user at point?")
+      (let ((user-handles (mastodon-profile--extract-users-handles
+                           (mastodon-profile--toot-json))))
+        (completing-read "View profile of user [choose or enter any handle]: "
+                         user-handles
+                         nil ; predicate
+                         'confirm)))))
+  (if (not (or
+            ;; own profile has no need for toot-json test:
+            (equal user-handle (mastodon-auth--get-account-name))
+            (get-text-property (point) 'toot-json)))
+      (message "Looks like there's no toot or user at point?")
+    (let ((account (mastodon-profile--lookup-account-in-status
+                    user-handle (mastodon-profile--toot-json))))
+      (if account
+          (progn
+            (message "Loading profile of user %s..." user-handle)
+            (mastodon-profile--make-author-buffer account)
+            (message "'C-c C-c' to cycle profile views: toots, followers, following"))
+        (message "Cannot find a user with handle %S" user-handle)))))
 
 (defun mastodon-profile--my-profile ()
   "Show the profile of the currently signed in user."
@@ -387,22 +443,28 @@ FIELD is used to identify regions under 'account"
   (cdr (assoc field account)))
 
 (defun mastodon-profile--add-author-bylines (tootv)
-  "Convert TOOTV into a author-bylines and insert."
+  "Convert TOOTV into a author-bylines and insert.
+Also insert their profile note.
+Used to view a user's followers and those they're following."
+  ;;FIXME change the name of this fun now that we've edited what it does!
   (let ((inhibit-read-only t))
-    (mapc (lambda (toot)
-            (let ((start-pos (point)))
-              (insert "\n"
-                      (propertize
-                       (mastodon-tl--byline-author `((account . ,toot)))
-                       'byline  't
-                       'toot-id (alist-get 'id toot)
-                       'base-toot-id (mastodon-tl--toot-id toot)
-                       'toot-json toot))
-              (mastodon-media--inline-images start-pos (point))
-              (insert "\n"
-                      (mastodon-tl--render-text (alist-get 'note toot) nil)
-                      "\n")))
-          tootv)))
+    (when (not (equal tootv '[]))
+      (mapc (lambda (toot)
+              (let ((start-pos (point)))
+                (insert "\n"
+                        (propertize
+                         (mastodon-tl--byline-author `((account . ,toot)))
+                         'byline  't
+                         'toot-id (alist-get 'id toot)
+                         'base-toot-id (mastodon-tl--toot-id toot)
+                         'toot-json toot))
+                (mastodon-media--inline-images start-pos (point))
+                (insert "\n"
+                        (propertize
+                         (mastodon-tl--render-text (alist-get 'note toot) nil)
+                         'toot-json toot)                         '
+                        "\n")))
+            tootv))))
 
 (defun mastodon-profile--search-account-by-handle (handle)
   "Return an account based on a user's HANDLE.
@@ -430,9 +492,13 @@ If the handle does not match a search return then retun NIL."
 
 These include the author, author of reblogged entries and any user mentioned."
   (when status
-    (let ((this-account (alist-get 'account status))
-	      (mentions (alist-get 'mentions status))
-	      (reblog (alist-get 'reblog status)))
+    (let ((this-account
+           (or (alist-get 'account status) ; status is a toot
+                            status)) ; status is a user listing
+	      (mentions (or (alist-get 'mentions (alist-get 'status status))
+                        (alist-get 'mentions status)))
+	      (reblog (or (alist-get 'reblog (alist-get 'status status))
+                      (alist-get 'reblog status))))
       (seq-filter
        'stringp
        (seq-uniq

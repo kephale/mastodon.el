@@ -5,7 +5,7 @@
 ;; Maintainer: Marty Hiatt <martianhiatus@riseup.net>
 ;; Version: 0.10.0
 ;; Package-Requires: ((emacs "27.1") (request "0.3.0"))
-;; Homepage: https://git.blast.noho.st/mouse/mastodon.el
+;; Homepage: https://codeberg.org/martianh/mastodon.el
 
 ;; This file is not part of GNU Emacs.
 
@@ -32,6 +32,7 @@
 
 (require 'json)
 (require 'request) ; for attachments upload
+(require 'url)
 
 (defvar mastodon-instance-url)
 (defvar mastodon-toot--media-attachment-ids)
@@ -96,39 +97,47 @@ Message status and JSON error from RESPONSE if unsuccessful."
     (insert-file-contents filename)
     (string-to-unibyte (buffer-string))))
 
-(defun mastodon-http--post (url args headers &optional unauthenticed-p)
+(defmacro mastodon-http--authorized-request (method body &optional unauthenticated-p)
+  "Make a METHOD type request using BODY, with Mastodon authorization.
+Unless UNAUTHENTICATED-P is non-nil."
+  `(let ((url-request-method ,method)
+         (url-request-extra-headers
+          (unless ,unauthenticated-p
+            (list (cons "Authorization"
+                        (concat "Bearer " (mastodon-auth--access-token)))))))
+     ,body))
+
+(defun mastodon-http--post (url args headers &optional unauthenticated-p)
   "POST synchronously to URL with ARGS and HEADERS.
 
-Authorization header is included by default unless UNAUTHENTICED-P is non-nil."
-  (let ((url-request-method "POST")
-        (url-request-data
-         (when args
-           (mapconcat (lambda (arg)
-                        (concat (url-hexify-string (car arg))
-                                "="
-                                (url-hexify-string (cdr arg))))
-                      args
-                      "&")))
-        (url-request-extra-headers
-	 (append
-	  (unless unauthenticed-p
-	    `(("Authorization" . ,(concat "Bearer " (mastodon-auth--access-token)))))
-          ;; pleroma compatibility:
-          (unless (assoc "Content-Type" headers)
-            '(("Content-Type" . "application/x-www-form-urlencoded")))
-	  headers)))
-    (with-temp-buffer
-      (mastodon-http--url-retrieve-synchronously url))))
+Authorization header is included by default unless UNAUTHENTICATED-P is non-nil."
+  (mastodon-http--authorized-request
+   "POST"
+   (let ((url-request-data
+          (when args
+            (mapconcat (lambda (arg)
+                         (concat (url-hexify-string (car arg))
+                                 "="
+                                 (url-hexify-string (cdr arg))))
+                       args
+                       "&")))
+         (url-request-extra-headers
+          (append url-request-extra-headers ; auth set in macro
+                  ;; pleroma compat:
+                  (unless (assoc "Content-Type" headers)
+                    '(("Content-Type" . "application/x-www-form-urlencoded")))
+                  headers)))
+     (with-temp-buffer
+       (mastodon-http--url-retrieve-synchronously url)))
+   unauthenticated-p))
 
 (defun mastodon-http--get (url)
   "Make synchronous GET request to URL.
 
 Pass response buffer to CALLBACK function."
-  (let ((url-request-method "GET")
-        (url-request-extra-headers
-         `(("Authorization" . ,(concat "Bearer "
-                                       (mastodon-auth--access-token))))))
-    (mastodon-http--url-retrieve-synchronously url)))
+  (mastodon-http--authorized-request
+   "GET"
+   (mastodon-http--url-retrieve-synchronously url)))
 
 (defun mastodon-http--get-json (url)
   "Make synchronous GET request to URL. Return JSON response."
@@ -137,6 +146,8 @@ Pass response buffer to CALLBACK function."
 
 (defun mastodon-http--process-json ()
   "Process JSON response."
+  ;; view raw response:
+  ;; (switch-to-buffer (current-buffer))
   (goto-char (point-min))
   (re-search-forward "^$" nil 'move)
   (let ((json-string
@@ -149,12 +160,17 @@ Pass response buffer to CALLBACK function."
 
 (defun mastodon-http--delete (url)
   "Make DELETE request to URL."
-  (let ((url-request-method "DELETE")
-        (url-request-extra-headers
-         `(("Authorization" . ,(concat "Bearer "
-                                       (mastodon-auth--access-token))))))
-    (with-temp-buffer
-      (mastodon-http--url-retrieve-synchronously url))))
+  (mastodon-http--authorized-request
+   "DELETE"
+   (with-temp-buffer
+     (mastodon-http--url-retrieve-synchronously url))))
+
+(defun mastodon-http--append-query-string (url params)
+  "Append PARAMS to URL as query strings and return it.
+
+PARAMS should be an alist as required `url-build-query-string'."
+  (let ((query-string (url-build-query-string params)))
+    (concat url "?" query-string)))
 
 ;; search functions:
 (defun mastodon-http--process-json-search ()
@@ -179,14 +195,12 @@ PARAM is any extra parameters to send with the request."
   "Make GET request to BASE-URL, searching for QUERY.
 Pass response buffer to CALLBACK function.
 PARAM is a formatted request parameter, eg 'following=true'."
-  (let ((url-request-method "GET")
-        (url (if param
-                 (concat base-url "?" param "&q=" (url-hexify-string query))
-               (concat base-url "?q=" (url-hexify-string query))))
-        (url-request-extra-headers
-         `(("Authorization" . ,(concat "Bearer "
-                                       (mastodon-auth--access-token))))))
-    (mastodon-http--url-retrieve-synchronously url)))
+  (mastodon-http--authorized-request
+   "GET"
+   (let ((url (if param
+                  (concat base-url "?" param "&q=" (url-hexify-string query))
+                (concat base-url "?q=" (url-hexify-string query)))))
+     (mastodon-http--url-retrieve-synchronously url))))
 
 ;; profile update functions
 
@@ -200,25 +214,21 @@ PARAM is a formatted request parameter, eg 'following=true'."
   "Make synchronous PATCH request to BASE-URL.
 Optionally specify the NOTE to edit.
 Pass response buffer to CALLBACK function."
-  (let ((url-request-method "PATCH")
-        (url (if note
+  (mastodon-http--authorized-request
+   "PATCH"
+   (let ((url (if note
                  (concat base-url "?note=" (url-hexify-string note))
-               base-url))
-        (url-request-extra-headers
-         `(("Authorization" . ,(concat "Bearer "
-                                       (mastodon-auth--access-token))))))
-    (mastodon-http--url-retrieve-synchronously url)))
+               base-url)))
+     (mastodon-http--url-retrieve-synchronously url))))
 
  ;; Asynchronous functions
 
 (defun mastodon-http--get-async (url &optional callback &rest cbargs)
   "Make GET request to URL.
 Pass response buffer to CALLBACK function with args CBARGS."
-  (let ((url-request-method "GET")
-        (url-request-extra-headers
-         `(("Authorization" . ,(concat "Bearer "
-                                       (mastodon-auth--access-token))))))
-    (url-retrieve url callback cbargs)))
+  (mastodon-http--authorized-request
+   "GET"
+   (url-retrieve url callback cbargs)))
 
 (defun mastodon-http--get-json-async (url &optional callback &rest args)
   "Make GET request to URL. Call CALLBACK with json-vector and ARGS."
@@ -232,21 +242,19 @@ Pass response buffer to CALLBACK function with args CBARGS."
   "POST asynchronously to URL with ARGS and HEADERS.
 Then run function CALLBACK with arguements CBARGS.
 Authorization header is included by default unless UNAUTHENTICED-P is non-nil."
-  (let ((url-request-method "POST")
-        (request-timeout 5)
-        (url-request-data
-         (when args
-           (mapconcat (lambda (arg)
-                        (concat (url-hexify-string (car arg))
-                                "="
-                                (url-hexify-string (cdr arg))))
-                      args
-                      "&")))
-        (url-request-extra-headers
-	 (append `(("Authorization" . ,(concat "Bearer " (mastodon-auth--access-token))))
-	         headers)))
-    (with-temp-buffer
-      (url-retrieve url callback cbargs))))
+  (mastodon-http--authorized-request
+   "POST"
+   (let ((request-timeout 5)
+         (url-request-data
+          (when args
+            (mapconcat (lambda (arg)
+                         (concat (url-hexify-string (car arg))
+                                 "="
+                                 (url-hexify-string (cdr arg))))
+                       args
+                       "&"))))
+     (with-temp-buffer
+       (url-retrieve url callback cbargs)))))
 
 ;; TODO: test for curl first?
 (defun mastodon-http--post-media-attachment (url filename caption)
