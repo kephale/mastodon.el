@@ -597,7 +597,9 @@ If media items have been attached and uploaded with
                        (mapcar (lambda (id)
                                  (cons "media_ids[]" id))
                                mastodon-toot--media-attachment-ids)))
-         (args (append args-media args-no-media)))
+         (args (append args-media args-no-media))
+         (prev-window (previous-window))
+         (reply-id mastodon-toot--reply-to-id))
     (cond ((and mastodon-toot--media-attachments
                 ;; make sure we have media args
                 ;; and the same num of ids as attachments
@@ -612,10 +614,21 @@ If media items have been attached and uploaded with
            (message "Empty toot. Cowardly refusing to post this."))
           (t
            (let ((response (mastodon-http--post endpoint args nil)))
-             (mastodon-http--triage response
-                                    (lambda ()
-                                      (mastodon-toot--kill)
-                                      (message "Toot toot!"))))))))
+             (mastodon-http--triage
+              response
+              (lambda ()
+                (mastodon-toot--kill)
+                (message "Toot toot!")
+                ;; for now, only reload in thread view and replying to it:
+                (when reply-id
+                  (select-window prev-window)
+                  (save-match-data
+                    (if (string-match
+                         "statuses/\\([[:digit:]]+\\)/context"
+                         (mastodon-tl--get-endpoint))
+                        (mastodon-tl--reload-timeline-or-profile
+                         (match-string 1
+                                       (mastodon-tl--get-endpoint)))))))))))))
 
 (defun mastodon-toot--process-local (acct)
   "Add domain to local ACCT and replace the curent user name with \"\".

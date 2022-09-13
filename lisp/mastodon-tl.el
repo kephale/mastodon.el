@@ -1689,7 +1689,7 @@ by `mastodon-tl--follow-user' to enable or disable notifications."
                                     (message "User %s (@%s) %sed!" name user-handle action)))))))
 
 ;; TODO: add this to new posts in some cases, e.g. in thread view.
-(defun mastodon-tl--reload-timeline-or-profile ()
+(defun mastodon-tl--reload-timeline-or-profile (&optional id)
   "Reload the current timeline or profile page.
 For use after e.g. deleting a toot."
   (cond ((equal (mastodon-tl--get-endpoint) "timelines/home")
@@ -1703,12 +1703,16 @@ For use after e.g. deleting a toot."
         ((equal (mastodon-tl--buffer-name)
                 (concat "*mastodon-" (mastodon-auth--get-account-name) "-statuses*"))
          (mastodon-profile--my-profile))
+        ;; thread views:
         ((save-match-data
            (string-match
-            "statuses/\\(?2:[[:digit:]]+\\)/context"
+            "statuses/\\([[:digit:]]+\\)/context"
             (mastodon-tl--get-endpoint))
+           ;; FIXME: fails if we delete the status the thread is loaded to:
+           ;; FIXME: fails if we reply to a toot the thread is not loaded to:
            (mastodon-tl--thread
-            (match-string 2 (mastodon-tl--get-endpoint)))))))
+            (or id
+                (match-string 1 (mastodon-tl--get-endpoint))))))))
 
 (defun mastodon-tl--more ()
   "Append older toots to timeline, asynchronously."
