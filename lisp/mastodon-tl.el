@@ -345,7 +345,7 @@ Used on initializing a timeline or thread."
          (t2 (replace-regexp-in-string "<\/?span>" "" t1)))
     (replace-regexp-in-string "<span class=\"h-card\">" "" t2)))
 
-(defun mastodon-tl--byline-author (toot)
+(defun mastodon-tl--byline-author (toot &optional base-byline)
   "Propertize author of TOOT."
   (let* ((account (alist-get 'account toot))
          (handle (alist-get 'acct account))
@@ -354,8 +354,6 @@ Used on initializing a timeline or thread."
                  (alist-get 'username account)))
          (profile-url (alist-get 'url account))
          (avatar-url (alist-get 'avatar account)))
-    ;; TODO: Once we have a view for a user (e.g. their posts
-    ;; timeline) make this a tab-stop and attach an action
     (concat
      (when (and mastodon-tl--show-avatars
                 mastodon-tl--display-media-p
@@ -364,7 +362,8 @@ Used on initializing a timeline or thread."
                   (image-transforms-p)))
        (mastodon-media--get-avatar-rendering avatar-url))
      (propertize name
-                 'face 'mastodon-display-name-face
+                 'face (if base-byline '(((:underline t)) mastodon-display-name-face)
+                         'mastodon-display-name-face)
                  ;; enable playing of videos when point is on byline:
                  'attachments (mastodon-tl--get-attachments-for-byline toot)
                  'keymap mastodon-tl--byline-link-keymap
@@ -377,9 +376,11 @@ Used on initializing a timeline or thread."
                              (string-suffix-p "-following*" (buffer-name)))
                    ;; (mastodon-tl--get-endpoint)))
                    (mastodon-tl--format-faves-count toot)))
-     " ("
+     (propertize " ("
+                 'face (when base-byline '((:underline t))))
      (propertize (concat "@" handle)
-                 'face 'mastodon-handle-face
+                 'face (if base-byline '(((:underline t)) 'mastodon-handle-face)
+                         'mastodon-handle-face)
                  'mouse-face 'highlight
 		 'mastodon-tab-stop 'user-handle
                  'account account
@@ -445,7 +446,7 @@ The result is added as an attachments property to author-byline."
          `(:url ,remote-url :type ,type)))
      media-attachments)))
 
-(defun mastodon-tl--byline-boosted (toot)
+(defun mastodon-tl--byline-boosted (toot &optional base-byline)
   "Add byline for boosted data from TOOT."
   (let ((reblog (alist-get 'reblog toot)))
     (when reblog
@@ -453,7 +454,7 @@ The result is added as an attachments property to author-byline."
        "\n "
        (propertize "Boosted" 'face 'mastodon-boosted-face)
        " "
-       (mastodon-tl--byline-author reblog)))))
+       (mastodon-tl--byline-author reblog base-byline)))))
 
 (defun mastodon-tl--field (field toot)
   "Return FIELD from TOOT.
@@ -554,7 +555,9 @@ this just means displaying toot client."
          (bookmark-str (if (fontp (char-displayable-p #10r128278))
                            "🔖"
                          "K"))
-         (visibility (mastodon-tl--field 'visibility toot)))
+         (visibility (mastodon-tl--field 'visibility toot))
+         (base-toot-p (or (alist-get 'status toot)
+                          (alist-get 'reblog toot))))
     (concat
      ;; Boosted/favourited markers are not technically part of the byline, so
      ;; we don't propertize them with 'byline t', as per the rest. This
@@ -573,7 +576,7 @@ this just means displaying toot client."
       (concat
        ;; we propertize help-echo format faves for author name
        ;; in `mastodon-tl--byline-author'
-       (funcall author-byline toot)
+       (funcall author-byline toot (unless base-toot-p :base-byline))
        (cond ((equal visibility "direct")
               (if (fontp (char-displayable-p #10r9993))
                   " ✉"
@@ -582,7 +585,7 @@ this just means displaying toot client."
               (if (fontp (char-displayable-p #10r128274))
                   " 🔒"
                 " [followers]")))
-       (funcall action-byline toot)
+       (funcall action-byline toot :base-byline)
        " "
        ;; TODO: Once we have a view for toot (responses etc.) make
        ;; this a tab stop and attach an action.
@@ -591,7 +594,8 @@ this just means displaying toot client."
         'timestamp parsed-time
         'display (if mastodon-tl--enable-relative-timestamps
                      (mastodon-tl--relative-time-description parsed-time)
-                   parsed-time))
+                   parsed-time)
+        'face (when base-toot-p '((:underline t))))
        (when detailed-p
          (let* ((app (alist-get 'application toot))
                 (app-name (alist-get 'name app))
@@ -606,8 +610,7 @@ this just means displaying toot client."
 		          'mastodon-tab-stop 'shr-url
 		          'shr-url app-url
                           'help-echo app-url
-		          'keymap mastodon-tl--shr-map-replacement)))))
-       (propertize "\n  ------------\n" 'face 'default))
+		          'keymap mastodon-tl--shr-map-replacement))))))
       'favourited-p faved
       'boosted-p    boosted
       'bookmarked-p bookmarked
