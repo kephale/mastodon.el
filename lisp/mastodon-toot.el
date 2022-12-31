@@ -140,6 +140,16 @@ You need to install company yourself to use this."
   :group 'mastodon-toot
   :type 'integer)
 
+(defcustom mastodon-toot-default-reply-visibility "public"
+  "Default visibility settings when replying.
+If the original toot visibility is different we use the more restricted one."
+  :group 'mastodon-toot
+  :type '(choice
+         (const :tag "public" "public")
+         (const :tag "unlisted" "unlisted")
+         (const :tag "followers-only" "followers-only")
+         (const :tag "direct" "direct")))
+
 (defcustom mastodon-toot--enable-custom-instance-emoji nil
   "Whether to enable your instance's custom emoji by default."
   :group 'mastodon-toot
@@ -1348,11 +1358,21 @@ REPLY-TEXT is the text of the toot being replied to."
       'read-only "Edit your message below."
       'toot-post-header t))))
 
+(defun mastodon-toot--most-resitrictive-visibility (reply-visibility)
+  "Return more restrictive visibility btwn REPLY-VISIBILITY and default.
+Default settings for replies is defined in `mastodon-toot-default-reply-visibility`."
+  (let ((less-restrictive (member (intern mastodon-toot-default-reply-visibility)
+				  mastodon-toot-visibility-list)))
+    (if (member (intern reply-visibility) less-restrictive)
+	mastodon-toot-default-reply-visibility reply-visibility)))
+
 (defun mastodon-toot--setup-as-reply (reply-to-user reply-to-id reply-json)
   "If REPLY-TO-USER is provided, inject their handle into the message.
 If REPLY-TO-ID is provided, set `mastodon-toot--reply-to-id'.
 REPLY-JSON is the full JSON of the toot being replied to."
-  (let ((reply-visibility (alist-get 'visibility reply-json))
+  (let ((reply-visibility
+	 (mastodon-toot--most-resitrictive-visibility
+	  (alist-get 'visibility reply-json)))
         (reply-cw (alist-get 'spoiler_text reply-json)))
     (when reply-to-user
       (insert (format "%s " reply-to-user))
