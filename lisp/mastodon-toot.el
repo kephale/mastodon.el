@@ -1358,13 +1358,13 @@ REPLY-TEXT is the text of the toot being replied to."
       'read-only "Edit your message below."
       'toot-post-header t))))
 
-(defun mastodon-toot--most-resitrictive-visibility (reply-visibility)
-  "Return more restrictive visibility btwn REPLY-VISIBILITY and default.
-Default settings for replies is defined in `mastodon-toot-default-reply-visibility`."
+(defun mastodon-toot--most-restrictive-visibility (reply-visibility)
+  "Return REPLY-VISIBILITY or default visibility, whichever is more restrictive.
+The default is given by `mastodon-toot-default-reply-visibility'."
   (let ((less-restrictive (member (intern mastodon-toot-default-reply-visibility)
-				  mastodon-toot-visibility-list)))
+				                  mastodon-toot-visibility-list)))
     (if (member (intern reply-visibility) less-restrictive)
-	mastodon-toot-default-reply-visibility reply-visibility)))
+	    mastodon-toot-default-reply-visibility reply-visibility)))
 
 (defun mastodon-toot--setup-as-reply (reply-to-user reply-to-id reply-json)
   "If REPLY-TO-USER is provided, inject their handle into the message.
